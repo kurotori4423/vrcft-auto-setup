@@ -69,8 +69,6 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 if (GUILayout.Button("検知", GUILayout.Height(28)))
                 {
                     _report = VrcftAvatarDetector.Detect(_avatar);
-                    // EyeLook既定値をDescriptorから反映
-                    _settings.enableEyeLook = _report.EyeLook.EnableEyeLook;
                 }
             }
         }

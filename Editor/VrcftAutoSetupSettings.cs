@@ -7,8 +7,8 @@ namespace Kurotori.VrcftAutoSetup.Editor
     /// </summary>
     public enum EyeLookMode
     {
-        /// <summary>Descriptor の RotationStates から Humanoid の目 muscle を駆動。</summary>
-        HumanoidFromDescriptor = 0,
+        /// <summary>Humanoid の目 muscle を -1..1 の固定範囲で駆動。</summary>
+        HumanoidMuscleFixed = 0,
         /// <summary>ブレンドシェイプで駆動。</summary>
         BlendShapes = 1,
     }
@@ -41,7 +41,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
         public bool enableEyeLook = true;
 
         /// <summary>EyeLook 駆動方式。</summary>
-        public EyeLookMode eyeLookMode = EyeLookMode.HumanoidFromDescriptor;
+        public EyeLookMode eyeLookMode = EyeLookMode.HumanoidMuscleFixed;
 
         /// <summary>Expression メニューを生成するか。</summary>
         public bool addMenu = true;

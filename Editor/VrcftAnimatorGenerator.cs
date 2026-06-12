@@ -81,13 +81,10 @@ namespace Kurotori.VrcftAutoSetup.Editor
             BuildDrivingLayer(avatar, controller, settings, targets, result);
 
             bool eyeLookEnabled = settings.enableEyeLook
-                && report.EyeLook.EnableEyeLook
-                && report.EyeLook.LeftEyeBone != null
-                && report.EyeLook.RightEyeBone != null
-                && settings.eyeLookMode == EyeLookMode.HumanoidFromDescriptor;
+                && settings.eyeLookMode == EyeLookMode.HumanoidMuscleFixed;
             if (eyeLookEnabled)
             {
-                BuildAdditiveEyeLookController(avatar, report, settings, targets, result);
+                BuildAdditiveEyeLookController(settings, targets, result);
             }
 
             // 制御対象レイヤーの index を名前から解決 (LayerControl 用)。
@@ -133,9 +130,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
 
             // Eye系特別扱い: シェイプ未検知でも EyeLook で使うものを対象に含める
             bool eyeLookOn = settings.enableEyeLook
-                && report.EyeLook.EnableEyeLook
-                && report.EyeLook.LeftEyeBone != null
-                && report.EyeLook.RightEyeBone != null;
+                && settings.eyeLookMode == EyeLookMode.HumanoidMuscleFixed;
             if (eyeLookOn)
             {
                 foreach (var pname in new[] { "EyeLeftX", "EyeRightX", "EyeY" })
@@ -559,7 +554,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
         /// <summary>
         /// Humanoid の目 muscle だけを駆動する Additive 用 AnimatorController を生成する。
         /// </summary>
-        private static void BuildAdditiveEyeLookController(VRCAvatarDescriptor avatar, VrcftDetectionReport report, VrcftAutoSetupSettings settings, List<Target> targets, VrcftGenerationResult result)
+        private static void BuildAdditiveEyeLookController(VrcftAutoSetupSettings settings, List<Target> targets, VrcftGenerationResult result)
         {
             var eyeTargets = targets.Where(t => IsEyeLookRotationParameter(t.Entry.ParameterName)).ToList();
             if (eyeTargets.Count == 0) return;
@@ -574,10 +569,8 @@ namespace Kurotori.VrcftAutoSetup.Editor
             DeclareControllerParameters(controller, settings, eyeTargets);
 
             var eyeLookMotion = VrcftEyeLookGenerator.BuildMotion(
-                avatar,
                 controller,
                 settings,
-                report,
                 result.outputDir + "/Additive/Animations/EyeLook",
                 result);
             if (eyeLookMotion == null)
