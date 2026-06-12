@@ -17,13 +17,15 @@ namespace Kurotori.VrcftAutoSetup.Editor
         private const string RightEyeDownUp = "Right Eye Down-Up";
         private const string RightEyeInOut = "Right Eye In-Out";
 
-        public static void Build(
+        /// <summary>
+        /// EyeLook 用の Direct BlendTree を構築する。Playable Layer の差し替えを容易にするためレイヤーは追加しない。
+        /// </summary>
+        public static BlendTree BuildMotion(
             VRCAvatarDescriptor avatar,
             AnimatorController controller,
             VrcftAutoSetupSettings settings,
             VrcftDetectionReport report,
-            List<VrcftAnimatorGenerator.Target> targets,
-            string outputDir,
+            string clipOutputDir,
             VrcftGenerationResult result)
         {
             var info = report.EyeLook;
@@ -31,7 +33,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             if (sampler == null)
             {
                 Debug.LogWarning("[VRCFT Auto Setup] EyeLook は Humanoid Avatar が必要なため生成をスキップしました。");
-                return;
+                return null;
             }
 
             string SmoothName(string param) => settings.enableSmoothing ? "OSCm/Smooth/" + param : param;
@@ -42,9 +44,9 @@ namespace Kurotori.VrcftAutoSetup.Editor
             string eyeY = SmoothName("FT/v2/EyeY");
 
             var leftTree = BuildEyeTree(controller, info, isLeft: true,
-                blendParamX: leftX, blendParamY: eyeY, outputDir, "EyeLeft", sampler, result);
+                blendParamX: leftX, blendParamY: eyeY, clipOutputDir, "EyeLeft", sampler, result);
             var rightTree = BuildEyeTree(controller, info, isLeft: false,
-                blendParamX: rightX, blendParamY: eyeY, outputDir, "EyeRight", sampler, result);
+                blendParamX: rightX, blendParamY: eyeY, clipOutputDir, "EyeRight", sampler, result);
 
             var master = VrcftAssetUtility.CreateBlendTree(controller, "EyeLook_Master", BlendTreeType.Direct);
             master.children = new[]
@@ -52,9 +54,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 new ChildMotion { motion = leftTree, directBlendParameter = blendSet, timeScale = 1f },
                 new ChildMotion { motion = rightTree, directBlendParameter = blendSet, timeScale = 1f },
             };
-
-            // defaultWeight = 0: VRCFT_Control の LayerControl が EyeTrackingActive 時にONにする。
-            VrcftAnimatorGenerator.AddSingleStateLayer(controller, "VRCFT_EyeLook", master, settings.writeDefaults, defaultWeight: 0f);
+            return master;
         }
 
         private static BlendTree BuildEyeTree(
@@ -63,7 +63,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             bool isLeft,
             string blendParamX,
             string blendParamY,
-            string outputDir,
+            string clipOutputDir,
             string namePrefix,
             HumanoidEyePoseSampler sampler,
             VrcftGenerationResult result)
@@ -75,11 +75,11 @@ namespace Kurotori.VrcftAutoSetup.Editor
             var left = sampler.Sample(isLeft, isLeft ? info.LeftLeft : info.RightLeft);
             var right = sampler.Sample(isLeft, isLeft ? info.LeftRight : info.RightRight);
 
-            var straightClip = EyeClip(outputDir, namePrefix + "_Straight", isLeft, straight, result);
-            var upClip = EyeClip(outputDir, namePrefix + "_Up", isLeft, up, result);
-            var downClip = EyeClip(outputDir, namePrefix + "_Down", isLeft, down, result);
-            var leftClip = EyeClip(outputDir, namePrefix + "_Left", isLeft, left, result);
-            var rightClip = EyeClip(outputDir, namePrefix + "_Right", isLeft, right, result);
+            var straightClip = EyeClip(clipOutputDir, namePrefix + "_Straight", isLeft, straight, result);
+            var upClip = EyeClip(clipOutputDir, namePrefix + "_Up", isLeft, up, result);
+            var downClip = EyeClip(clipOutputDir, namePrefix + "_Down", isLeft, down, result);
+            var leftClip = EyeClip(clipOutputDir, namePrefix + "_Left", isLeft, left, result);
+            var rightClip = EyeClip(clipOutputDir, namePrefix + "_Right", isLeft, right, result);
 
             var tree = VrcftAssetUtility.CreateBlendTree(controller, namePrefix + "_2D", BlendTreeType.SimpleDirectional2D);
             tree.blendParameter = blendParamX;
@@ -95,12 +95,12 @@ namespace Kurotori.VrcftAutoSetup.Editor
             return tree;
         }
 
-        private static AnimationClip EyeClip(string outputDir, string name, bool isLeft, HumanoidEyePose pose, VrcftGenerationResult result)
+        private static AnimationClip EyeClip(string clipOutputDir, string name, bool isLeft, HumanoidEyePose pose, VrcftGenerationResult result)
         {
             var clip = new AnimationClip { name = name };
             VrcftAssetUtility.AddHumanoidMuscleConstant(clip, isLeft ? LeftEyeDownUp : RightEyeDownUp, pose.DownUp);
             VrcftAssetUtility.AddHumanoidMuscleConstant(clip, isLeft ? LeftEyeInOut : RightEyeInOut, pose.InOut);
-            string p = outputDir + "/Animations/EyeLook/" + name + ".anim";
+            string p = clipOutputDir.TrimEnd('/') + "/" + name + ".anim";
             UnityEditor.AssetDatabase.CreateAsset(clip, p);
             result.generatedClipPaths.Add(p);
             return clip;

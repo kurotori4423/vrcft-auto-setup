@@ -9,7 +9,7 @@ using VRC.SDKBase;
 namespace Kurotori.VrcftAutoSetup.Editor
 {
     /// <summary>
-    /// FX AnimatorController + AnimationClip の生成本体。
+    /// FX/Additive AnimatorController + AnimationClip の生成本体。
     /// </summary>
     public static class VrcftAnimatorGenerator
     {
@@ -37,14 +37,18 @@ namespace Kurotori.VrcftAutoSetup.Editor
             string baseFolder = settings.outputFolder.Replace('\\', '/').TrimEnd('/');
             string outputDir = baseFolder + "/" + Sanitize(report.AvatarName);
             result.outputDir = outputDir;
-            ResetSmoothClipCache(outputDir);
 
             // 既存削除 → 再作成
             VrcftAssetUtility.RecreateFolder(outputDir);
             VrcftAssetUtility.EnsureFolder(outputDir + "/Animations");
             VrcftAssetUtility.EnsureFolder(outputDir + "/Animations/Binary");
             VrcftAssetUtility.EnsureFolder(outputDir + "/Animations/Smooth");
-            VrcftAssetUtility.EnsureFolder(outputDir + "/Animations/EyeLook");
+            VrcftAssetUtility.EnsureFolder(outputDir + "/Additive");
+            VrcftAssetUtility.EnsureFolder(outputDir + "/Additive/Animations");
+            VrcftAssetUtility.EnsureFolder(outputDir + "/Additive/Animations/Binary");
+            VrcftAssetUtility.EnsureFolder(outputDir + "/Additive/Animations/Smooth");
+            VrcftAssetUtility.EnsureFolder(outputDir + "/Additive/Animations/EyeLook");
+            VrcftAssetUtility.EnsureFolder(outputDir + "/Additive/Masks");
 
             string controllerPath = outputDir + "/FX_FaceTracking.controller";
             var controller = AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
@@ -66,12 +70,12 @@ namespace Kurotori.VrcftAutoSetup.Editor
             // ---------- レイヤー構築 ----------
             if (settings.useBinary)
             {
-                BuildBinaryDecodeLayer(avatar, controller, settings, targets, result);
+                BuildBinaryDecodeLayer(controller, settings, targets, outputDir + "/Animations/Binary", result);
             }
 
             if (settings.enableSmoothing)
             {
-                BuildSmoothingLayer(controller, settings, targets);
+                BuildSmoothingLayer(controller, settings, targets, outputDir + "/Animations/Smooth");
             }
 
             BuildDrivingLayer(avatar, controller, settings, targets, result);
@@ -83,16 +87,15 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 && settings.eyeLookMode == EyeLookMode.HumanoidFromDescriptor;
             if (eyeLookEnabled)
             {
-                VrcftEyeLookGenerator.Build(avatar, controller, settings, report, targets, outputDir, result);
+                BuildAdditiveEyeLookController(avatar, report, settings, targets, result);
             }
 
             // 制御対象レイヤーの index を名前から解決 (LayerControl 用)。
             int eyeDrivingIndex = FindLayerIndex(controller, "VRCFT_Driving_Eye");
             int lipDrivingIndex = FindLayerIndex(controller, "VRCFT_Driving_Lip");
-            int eyeLookIndex = eyeLookEnabled ? FindLayerIndex(controller, "VRCFT_EyeLook") : -1;
 
             BuildControlLayer(controller, settings, "VRCFT_Control", "EyeTrackingActive", trackingEyes: true,
-                onWeightLayers: ToList(eyeDrivingIndex, eyeLookIndex));
+                onWeightLayers: ToList(eyeDrivingIndex), applyTrackingControl: result.additiveController == null);
             BuildControlLayer(controller, settings, "VRCFT_LipControl", "LipTrackingActive", trackingEyes: false,
                 onWeightLayers: ToList(lipDrivingIndex));
 
@@ -161,6 +164,44 @@ namespace Kurotori.VrcftAutoSetup.Editor
         // ============================================================
         private static void DeclareParameters(AnimatorController controller, VrcftAutoSetupSettings settings, List<Target> targets, VrcftGenerationResult result)
         {
+            DeclareControllerParameters(controller, settings, targets);
+
+            // ---------- syncedParameters 記録 ----------
+            foreach (var t in targets)
+            {
+                string full = t.Entry.FullName;
+                if (settings.useBinary)
+                {
+                    // DefaultValue (例: EyeLid=0.75) をビット列に量子化して初期値に反映する
+                    // (全bit=false だと同期初期値0=閉眼相当になるため)
+                    int quantizedDefault = Mathf.RoundToInt(Mathf.Clamp01(t.Entry.DefaultValue) * ((1 << t.Bits) - 1));
+                    for (int i = 0; i < t.Bits; i++)
+                    {
+                        int weight = 1 << i;
+                        float bitDefault = ((quantizedDefault >> i) & 1) == 1 ? 1f : 0f;
+                        result.syncedParameters.Add(new VrcftSyncedParameter($"{full}{weight}", VrcftParameterKind.Bool, bitDefault, saved: false));
+                    }
+                    if (t.Entry.TwoSided)
+                    {
+                        result.syncedParameters.Add(new VrcftSyncedParameter($"{full}Negative", VrcftParameterKind.Bool, 0f, saved: false));
+                    }
+                }
+                else
+                {
+                    result.syncedParameters.Add(new VrcftSyncedParameter(full, VrcftParameterKind.Float, t.Entry.DefaultValue, saved: false));
+                }
+            }
+
+            result.syncedParameters.Add(new VrcftSyncedParameter("EyeTrackingActive", VrcftParameterKind.Bool, 0f, saved: true));
+            result.syncedParameters.Add(new VrcftSyncedParameter("LipTrackingActive", VrcftParameterKind.Bool, 0f, saved: true));
+            result.syncedParameters.Add(new VrcftSyncedParameter(LocalSmoothing, VrcftParameterKind.Float, settings.localSmoothness, saved: true, localOnly: true));
+        }
+
+        /// <summary>
+        /// AnimatorController 内で参照するローカルパラメーターを宣言する。
+        /// </summary>
+        private static void DeclareControllerParameters(AnimatorController controller, VrcftAutoSetupSettings settings, List<Target> targets)
+        {
             // 共通定数 / スムージング設定
             VrcftAssetUtility.CheckAndCreateParameter(controller, BlendSet, AnimatorControllerParameterType.Float, defaultFloat: 1f);
             VrcftAssetUtility.CheckAndCreateParameter(controller, LocalSmoothing, AnimatorControllerParameterType.Float, defaultFloat: settings.localSmoothness);
@@ -198,49 +239,19 @@ namespace Kurotori.VrcftAutoSetup.Editor
                         defaultFloat: t.Entry.DefaultValue);
                 }
             }
-
-            // ---------- syncedParameters 記録 ----------
-            foreach (var t in targets)
-            {
-                string full = t.Entry.FullName;
-                if (settings.useBinary)
-                {
-                    // DefaultValue (例: EyeLid=0.75) をビット列に量子化して初期値に反映する
-                    // (全bit=false だと同期初期値0=閉眼相当になるため)
-                    int quantizedDefault = Mathf.RoundToInt(Mathf.Clamp01(t.Entry.DefaultValue) * ((1 << t.Bits) - 1));
-                    for (int i = 0; i < t.Bits; i++)
-                    {
-                        int weight = 1 << i;
-                        float bitDefault = ((quantizedDefault >> i) & 1) == 1 ? 1f : 0f;
-                        result.syncedParameters.Add(new VrcftSyncedParameter($"{full}{weight}", VrcftParameterKind.Bool, bitDefault, saved: false));
-                    }
-                    if (t.Entry.TwoSided)
-                    {
-                        result.syncedParameters.Add(new VrcftSyncedParameter($"{full}Negative", VrcftParameterKind.Bool, 0f, saved: false));
-                    }
-                }
-                else
-                {
-                    result.syncedParameters.Add(new VrcftSyncedParameter(full, VrcftParameterKind.Float, t.Entry.DefaultValue, saved: false));
-                }
-            }
-
-            result.syncedParameters.Add(new VrcftSyncedParameter("EyeTrackingActive", VrcftParameterKind.Bool, 0f, saved: true));
-            result.syncedParameters.Add(new VrcftSyncedParameter("LipTrackingActive", VrcftParameterKind.Bool, 0f, saved: true));
-            result.syncedParameters.Add(new VrcftSyncedParameter(LocalSmoothing, VrcftParameterKind.Float, settings.localSmoothness, saved: true, localOnly: true));
         }
 
         // ============================================================
         // Layer 1: Binary デコード
         // ============================================================
-        private static void BuildBinaryDecodeLayer(VRCAvatarDescriptor avatar, AnimatorController controller, VrcftAutoSetupSettings settings, List<Target> targets, VrcftGenerationResult result)
+        private static void BuildBinaryDecodeLayer(AnimatorController controller, VrcftAutoSetupSettings settings, List<Target> targets, string clipOutputDir, VrcftGenerationResult result)
         {
             var master = VrcftAssetUtility.CreateBlendTree(controller, "BinaryDecode_Master", BlendTreeType.Direct);
             var children = new List<ChildMotion>();
 
             foreach (var t in targets)
             {
-                var tree = BuildDecodeTree(controller, t, result.outputDir, result);
+                var tree = BuildDecodeTree(controller, t, clipOutputDir, result);
                 children.Add(new ChildMotion { motion = tree, directBlendParameter = BlendSet, timeScale = 1f });
             }
             master.children = children.ToArray();
@@ -248,23 +259,23 @@ namespace Kurotori.VrcftAutoSetup.Editor
             AddSingleStateLayer(controller, "VRCFT_BinaryDecode", master, settings.writeDefaults);
         }
 
-        private static BlendTree BuildDecodeTree(AnimatorController controller, Target t, string outputDir, VrcftGenerationResult result)
+        private static BlendTree BuildDecodeTree(AnimatorController controller, Target t, string clipOutputDir, VrcftGenerationResult result)
         {
             string full = t.Entry.FullName;
             string fileBase = full.Replace('/', '_');
 
             // ゼロクリップ (このパラメーター用、Pos/Neg/ビット間で共有)
-            var zeroClip = CreateAnimatorClip(outputDir + "/Animations/Binary/" + fileBase + "_Zero.anim",
+            var zeroClip = CreateAnimatorClip(clipOutputDir.TrimEnd('/') + "/" + fileBase + "_Zero.anim",
                 fileBase + "_Zero", full, 0f, result);
 
-            BlendTree posTree = BuildBitTree(controller, t, full, fileBase, zeroClip, negative: false, outputDir, result);
+            BlendTree posTree = BuildBitTree(controller, t, full, fileBase, zeroClip, negative: false, clipOutputDir, result);
 
             if (!t.Entry.TwoSided)
             {
                 return posTree;
             }
 
-            BlendTree negTree = BuildBitTree(controller, t, full, fileBase, zeroClip, negative: true, outputDir, result);
+            BlendTree negTree = BuildBitTree(controller, t, full, fileBase, zeroClip, negative: true, clipOutputDir, result);
 
             var sel = VrcftAssetUtility.CreateBlendTree(controller, fileBase + "_Decode", BlendTreeType.Simple1D);
             sel.blendParameter = $"{full}Negative";
@@ -276,7 +287,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             return sel;
         }
 
-        private static BlendTree BuildBitTree(AnimatorController controller, Target t, string full, string fileBase, AnimationClip zeroClip, bool negative, string outputDir, VrcftGenerationResult result)
+        private static BlendTree BuildBitTree(AnimatorController controller, Target t, string full, string fileBase, AnimationClip zeroClip, bool negative, string clipOutputDir, VrcftGenerationResult result)
         {
             int n = t.Bits;
             float denom = (1 << n) - 1; // 2^N - 1
@@ -289,7 +300,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 float value = (negative ? -1f : 1f) * weight / denom;
 
                 var oneClip = CreateAnimatorClip(
-                    outputDir + $"/Animations/Binary/{fileBase}_Bit{weight}_{(negative ? "Neg" : "Pos")}.anim",
+                    clipOutputDir.TrimEnd('/') + $"/{fileBase}_Bit{weight}_{(negative ? "Neg" : "Pos")}.anim",
                     $"{fileBase}_Bit{weight}_{(negative ? "Neg" : "Pos")}", full, value, result);
 
                 var bitTree = VrcftAssetUtility.CreateBlendTree(controller, $"{fileBase}_Bit{weight}{(negative ? "N" : "P")}", BlendTreeType.Simple1D);
@@ -309,7 +320,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
         // ============================================================
         // Layer 2: スムージング
         // ============================================================
-        private static void BuildSmoothingLayer(AnimatorController controller, VrcftAutoSetupSettings settings, List<Target> targets)
+        private static void BuildSmoothingLayer(AnimatorController controller, VrcftAutoSetupSettings settings, List<Target> targets, string clipOutputDir)
         {
             var layer = new AnimatorControllerLayer
             {
@@ -321,9 +332,10 @@ namespace Kurotori.VrcftAutoSetup.Editor
             controller.AddLayer(layer);
 
             var sm = layer.stateMachine;
+            var clipCache = new Dictionary<string, AnimationClip>();
 
-            var localTree = BuildSmoothMaster(controller, settings, targets, LocalSmoothing, "Smooth_Local_Master");
-            var remoteTree = BuildSmoothMaster(controller, settings, targets, RemoteSmoothing, "Smooth_Remote_Master");
+            var localTree = BuildSmoothMaster(controller, settings, targets, LocalSmoothing, "Smooth_Local_Master", clipOutputDir, clipCache);
+            var remoteTree = BuildSmoothMaster(controller, settings, targets, RemoteSmoothing, "Smooth_Remote_Master", clipOutputDir, clipCache);
 
             var localState = sm.AddState("Local");
             localState.motion = localTree;
@@ -346,28 +358,28 @@ namespace Kurotori.VrcftAutoSetup.Editor
             toLocal.AddCondition(AnimatorConditionMode.If, 0f, "IsLocal");
         }
 
-        private static BlendTree BuildSmoothMaster(AnimatorController controller, VrcftAutoSetupSettings settings, List<Target> targets, string smoothingParam, string name)
+        private static BlendTree BuildSmoothMaster(AnimatorController controller, VrcftAutoSetupSettings settings, List<Target> targets, string smoothingParam, string name, string clipOutputDir, Dictionary<string, AnimationClip> clipCache)
         {
             var master = VrcftAssetUtility.CreateBlendTree(controller, name, BlendTreeType.Direct);
             var children = new List<ChildMotion>();
             foreach (var t in targets)
             {
-                var tree = BuildSmoothTree(controller, t, smoothingParam);
+                var tree = BuildSmoothTree(controller, t, smoothingParam, clipOutputDir, clipCache);
                 children.Add(new ChildMotion { motion = tree, directBlendParameter = BlendSet, timeScale = 1f });
             }
             master.children = children.ToArray();
             return master;
         }
 
-        private static BlendTree BuildSmoothTree(AnimatorController controller, Target t, string smoothingParam)
+        private static BlendTree BuildSmoothTree(AnimatorController controller, Target t, string smoothingParam, string clipOutputDir, Dictionary<string, AnimationClip> clipCache)
         {
             string full = t.Entry.FullName;
             string fileBase = full.Replace('/', '_');
 
             // クリップは Smooth/ に2個 (値 -1, +1)。Generate前に生成済みのものを使い回すため都度生成しないよう注意。
             // ここではアセットがまだ無い可能性があるので生成し、共有のため辞書で管理。
-            var negClip = GetOrCreateSmoothClip(controller, fileBase, full, -1f);
-            var posClip = GetOrCreateSmoothClip(controller, fileBase, full, +1f);
+            var negClip = GetOrCreateSmoothClip(clipOutputDir, clipCache, fileBase, full, -1f);
+            var posClip = GetOrCreateSmoothClip(clipOutputDir, clipCache, fileBase, full, +1f);
 
             var input = VrcftAssetUtility.CreateBlendTree(controller, fileBase + "_SmIn", BlendTreeType.Simple1D);
             input.blendParameter = full;
@@ -395,19 +407,16 @@ namespace Kurotori.VrcftAutoSetup.Editor
             return root;
         }
 
-        private readonly static Dictionary<string, AnimationClip> _smoothClipCache = new Dictionary<string, AnimationClip>();
-        private static string _smoothOutputDir;
-
-        private static AnimationClip GetOrCreateSmoothClip(AnimatorController controller, string fileBase, string full, float value)
+        private static AnimationClip GetOrCreateSmoothClip(string clipOutputDir, Dictionary<string, AnimationClip> clipCache, string fileBase, string full, float value)
         {
             string key = fileBase + "_" + (value < 0 ? "Neg" : "Pos");
-            if (_smoothClipCache.TryGetValue(key, out var existing)) return existing;
+            if (clipCache.TryGetValue(key, out var existing)) return existing;
 
-            string path = _smoothOutputDir + "/Animations/Smooth/" + key + ".anim";
+            string path = clipOutputDir.TrimEnd('/') + "/" + key + ".anim";
             var clip = new AnimationClip { name = key };
             VrcftAssetUtility.AddAnimatorParameterConstant(clip, SmoothPrefix + full, value);
             AssetDatabase.CreateAsset(clip, path);
-            _smoothClipCache[key] = clip;
+            clipCache[key] = clip;
             return clip;
         }
 
@@ -545,9 +554,123 @@ namespace Kurotori.VrcftAutoSetup.Editor
         }
 
         // ============================================================
+        // Additive: Humanoid EyeLook
+        // ============================================================
+        /// <summary>
+        /// Humanoid の目 muscle だけを駆動する Additive 用 AnimatorController を生成する。
+        /// </summary>
+        private static void BuildAdditiveEyeLookController(VRCAvatarDescriptor avatar, VrcftDetectionReport report, VrcftAutoSetupSettings settings, List<Target> targets, VrcftGenerationResult result)
+        {
+            var eyeTargets = targets.Where(t => IsEyeLookRotationParameter(t.Entry.ParameterName)).ToList();
+            if (eyeTargets.Count == 0) return;
+
+            string controllerPath = result.outputDir + "/Additive/Additive_EyeTracking.controller";
+            var controller = AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
+            while (controller.layers.Length > 0)
+            {
+                controller.RemoveLayer(0);
+            }
+
+            DeclareControllerParameters(controller, settings, eyeTargets);
+
+            var eyeLookMotion = VrcftEyeLookGenerator.BuildMotion(
+                avatar,
+                controller,
+                settings,
+                report,
+                result.outputDir + "/Additive/Animations/EyeLook",
+                result);
+            if (eyeLookMotion == null)
+            {
+                AssetDatabase.DeleteAsset(controllerPath);
+                return;
+            }
+
+            if (settings.useBinary)
+            {
+                BuildBinaryDecodeLayer(controller, settings, eyeTargets, result.outputDir + "/Additive/Animations/Binary", result);
+            }
+
+            if (settings.enableSmoothing)
+            {
+                BuildSmoothingLayer(controller, settings, eyeTargets, result.outputDir + "/Additive/Animations/Smooth");
+            }
+
+            var mask = CreateHeadOnlyMask(result.outputDir + "/Additive/Masks/VRCFT_HeadOnly.mask");
+            AddEyeTrackingLayer(controller, settings, eyeLookMotion, mask);
+            result.additiveController = controller;
+
+            EditorUtility.SetDirty(controller);
+        }
+
+        /// <summary>
+        /// Additive 側へ複製する EyeLook 用のFTパラメーターか判定する。
+        /// </summary>
+        private static bool IsEyeLookRotationParameter(string parameterName)
+        {
+            return parameterName == "EyeLeftX" || parameterName == "EyeRightX" || parameterName == "EyeY";
+        }
+
+        /// <summary>
+        /// 目 muscle の影響範囲を頭部だけに制限する AvatarMask を作成する。
+        /// </summary>
+        private static AvatarMask CreateHeadOnlyMask(string path)
+        {
+            var mask = new AvatarMask { name = "VRCFT_HeadOnly" };
+            foreach (AvatarMaskBodyPart part in System.Enum.GetValues(typeof(AvatarMaskBodyPart)))
+            {
+                mask.SetHumanoidBodyPartActive(part, false);
+            }
+            // Humanoid の目 muscle は Head パートに属するため、Additive 側の影響範囲を頭部だけに限定する。
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.Head, true);
+            AssetDatabase.CreateAsset(mask, path);
+            return mask;
+        }
+
+        /// <summary>
+        /// Additive controller に EyeTrackingActive で Native/VRCFT を切り替える目回転レイヤーを追加する。
+        /// </summary>
+        private static void AddEyeTrackingLayer(AnimatorController controller, VrcftAutoSetupSettings settings, Motion eyeLookMotion, AvatarMask mask)
+        {
+            var layer = new AnimatorControllerLayer
+            {
+                name = "VRCFT_EyeLook_Additive",
+                defaultWeight = 1f,
+                avatarMask = mask,
+                blendingMode = AnimatorLayerBlendingMode.Override,
+                stateMachine = new AnimatorStateMachine { name = "VRCFT_EyeLook_Additive", hideFlags = HideFlags.HideInHierarchy },
+            };
+            AssetDatabase.AddObjectToAsset(layer.stateMachine, controller);
+            controller.AddLayer(layer);
+
+            var nativeState = layer.stateMachine.AddState("Native Eye Tracking");
+            nativeState.writeDefaultValues = settings.writeDefaults;
+            var nativeTracking = nativeState.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
+            nativeTracking.trackingEyes = VRC_AnimatorTrackingControl.TrackingType.Tracking;
+
+            var vrcftState = layer.stateMachine.AddState("VRCFT Eye Tracking");
+            vrcftState.motion = eyeLookMotion;
+            vrcftState.writeDefaultValues = settings.writeDefaults;
+            var vrcftTracking = vrcftState.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
+            vrcftTracking.trackingEyes = VRC_AnimatorTrackingControl.TrackingType.Animation;
+
+            layer.stateMachine.defaultState = nativeState;
+
+            var toVrcft = nativeState.AddTransition(vrcftState);
+            toVrcft.hasExitTime = false;
+            toVrcft.duration = 0f;
+            toVrcft.AddCondition(AnimatorConditionMode.If, 0f, "EyeTrackingActive");
+
+            var toNative = vrcftState.AddTransition(nativeState);
+            toNative.hasExitTime = false;
+            toNative.duration = 0f;
+            toNative.AddCondition(AnimatorConditionMode.IfNot, 0f, "EyeTrackingActive");
+        }
+
+        // ============================================================
         // Layer 5/6: 制御 (TrackingControl)
         // ============================================================
-        private static void BuildControlLayer(AnimatorController controller, VrcftAutoSetupSettings settings, string layerName, string boolParam, bool trackingEyes, List<int> onWeightLayers)
+        private static void BuildControlLayer(AnimatorController controller, VrcftAutoSetupSettings settings, string layerName, string boolParam, bool trackingEyes, List<int> onWeightLayers, bool applyTrackingControl = true)
         {
             var layer = new AnimatorControllerLayer
             {
@@ -569,18 +692,21 @@ namespace Kurotori.VrcftAutoSetup.Editor
             onState.writeDefaultValues = settings.writeDefaults;
             sm.defaultState = offState;
 
-            // TrackingControl
-            var offTc = offState.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
-            var onTc = onState.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
-            if (trackingEyes)
+            if (applyTrackingControl)
             {
-                offTc.trackingEyes = VRC_AnimatorTrackingControl.TrackingType.Tracking;
-                onTc.trackingEyes = VRC_AnimatorTrackingControl.TrackingType.Animation;
-            }
-            else
-            {
-                offTc.trackingMouth = VRC_AnimatorTrackingControl.TrackingType.Tracking;
-                onTc.trackingMouth = VRC_AnimatorTrackingControl.TrackingType.Animation;
+                // Additive 側が目 tracking を管理する場合、FX 側ではレイヤー weight の切替だけに留める。
+                var offTc = offState.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
+                var onTc = onState.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
+                if (trackingEyes)
+                {
+                    offTc.trackingEyes = VRC_AnimatorTrackingControl.TrackingType.Tracking;
+                    onTc.trackingEyes = VRC_AnimatorTrackingControl.TrackingType.Animation;
+                }
+                else
+                {
+                    offTc.trackingMouth = VRC_AnimatorTrackingControl.TrackingType.Tracking;
+                    onTc.trackingMouth = VRC_AnimatorTrackingControl.TrackingType.Animation;
+                }
             }
 
             // LayerControl: 対象レイヤーの weight を ON=1 / OFF=0 に切替。
@@ -687,11 +813,5 @@ namespace Kurotori.VrcftAutoSetup.Editor
             return name;
         }
 
-        // Generate 開始時にスムージングクリップキャッシュを初期化する必要があるため公開
-        internal static void ResetSmoothClipCache(string outputDir)
-        {
-            _smoothClipCache.Clear();
-            _smoothOutputDir = outputDir;
-        }
     }
 }

@@ -48,13 +48,11 @@ namespace Kurotori.VrcftAutoSetup.Editor
             obj.transform.localScale = Vector3.one;
 
             // 3. MergeAnimator
-            var merge = obj.AddComponent<ModularAvatarMergeAnimator>();
-            merge.animator = result.fxController;
-            merge.layerType = VRCAvatarDescriptor.AnimLayerType.FX;
-            merge.deleteAttachedAnimator = true;
-            merge.pathMode = MergeAnimatorPathMode.Absolute;
-            merge.matchAvatarWriteDefaults = false;
-            EditorUtility.SetDirty(merge);
+            AddMergeAnimator(obj, result.fxController, VRCAvatarDescriptor.AnimLayerType.FX);
+            if (result.additiveController != null)
+            {
+                AddMergeAnimator(obj, result.additiveController, VRCAvatarDescriptor.AnimLayerType.Additive);
+            }
 
             // 4. Parameters
             var maParams = obj.AddComponent<ModularAvatarParameters>();
@@ -96,5 +94,21 @@ namespace Kurotori.VrcftAutoSetup.Editor
             return obj;
 #endif
         }
+
+#if USE_MODULAR_AVATAR
+        /// <summary>
+        /// Playable Layer ごとの AnimatorController を Modular Avatar の MergeAnimator として追加する。
+        /// </summary>
+        private static void AddMergeAnimator(GameObject obj, UnityEditor.Animations.AnimatorController controller, VRCAvatarDescriptor.AnimLayerType layerType)
+        {
+            var merge = obj.AddComponent<ModularAvatarMergeAnimator>();
+            merge.animator = controller;
+            merge.layerType = layerType;
+            merge.deleteAttachedAnimator = true;
+            merge.pathMode = MergeAnimatorPathMode.Absolute;
+            merge.matchAvatarWriteDefaults = false;
+            EditorUtility.SetDirty(merge);
+        }
+#endif
     }
 }
