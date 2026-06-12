@@ -80,7 +80,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 && report.EyeLook.EnableEyeLook
                 && report.EyeLook.LeftEyeBone != null
                 && report.EyeLook.RightEyeBone != null
-                && settings.eyeLookMode == EyeLookMode.BoneFromDescriptor;
+                && settings.eyeLookMode == EyeLookMode.HumanoidFromDescriptor;
             if (eyeLookEnabled)
             {
                 VrcftEyeLookGenerator.Build(avatar, controller, settings, report, targets, outputDir, result);

@@ -64,6 +64,14 @@ namespace Kurotori.VrcftAutoSetup.Editor
         }
 
         /// <summary>
+        /// Humanoid muscle を定数値で駆動する 1フレームクリップにカーブを追加する。
+        /// </summary>
+        public static void AddHumanoidMuscleConstant(AnimationClip clip, string muscleName, float value)
+        {
+            clip.SetCurve("", typeof(Animator), muscleName, AnimationCurve.Constant(0f, 0f, value));
+        }
+
+        /// <summary>
         /// Transform の localEulerAnglesRaw.x/y/z を定数で駆動するカーブを追加する。
         /// </summary>
         public static void AddTransformEuler(AnimationClip clip, string relativePath, Vector3 euler)
