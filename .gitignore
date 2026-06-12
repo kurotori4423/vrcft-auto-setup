@@ -1,0 +1,20 @@
+# Unity パッケージとして配布しないローカル生成物だけを除外する。
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.user
+*.userprefs
+*.pidb
+*.suo
+*.tmp
+*.temp
+*.log
+
+# テストやビルド時に発生する成果物はソース管理しない。
+[Bb]in/
+[Oo]bj/
+[Tt]est[Rr]esults/
+[Ll]ogs/
+[Tt]emp/

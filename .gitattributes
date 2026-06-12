@@ -1,0 +1,8 @@
+# Unity パッケージのテキスト資産は環境差分を抑えるため LF に統一する。
+* text=auto eol=lf
+
+*.cs text eol=lf
+*.asmdef text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.meta text eol=lf
