@@ -14,7 +14,7 @@
     "com.vrchat.avatars": "3.10.x",
     "nadena.dev.modular-avatar": ">=1.17.0 <2.0.0"
   },
-  "url": "https://github.com/kurotori4423/vrcft-auto-setup",
+  "url": "https://github.com/kurotori4423/vrcft-auto-setup/releases/download/v0.2.0/VRCFT.Auto.Setup_v0.2.0.zip",
   "repo": "https://kurotori4423.github.io/vpm.kurotori4423/vpm.json",
   "changelogUrl": "https://github.com/kurotori4423/vrcft-auto-setup/releases"
 }
