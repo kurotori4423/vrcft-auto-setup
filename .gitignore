@@ -18,3 +18,7 @@
 [Tt]est[Rr]esults/
 [Ll]ogs/
 [Tt]emp/
+
+# ローカルの運用手順は公開パッケージに含めない。
+AGENTS.md
+AGENTS.md.meta
