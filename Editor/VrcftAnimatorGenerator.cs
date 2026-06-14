@@ -92,9 +92,9 @@ namespace Kurotori.VrcftAutoSetup.Editor
             int lipDrivingIndex = FindLayerIndex(controller, "VRCFT_Driving_Lip");
 
             BuildControlLayer(controller, settings, "VRCFT_Control", "EyeTrackingActive", trackingEyes: true,
-                onWeightLayers: ToList(eyeDrivingIndex), applyTrackingControl: result.additiveController == null);
+                onWeightLayers: ToList(eyeDrivingIndex), clipOutputDir: outputDir + "/Animations", applyTrackingControl: result.additiveController == null);
             BuildControlLayer(controller, settings, "VRCFT_LipControl", "LipTrackingActive", trackingEyes: false,
-                onWeightLayers: ToList(lipDrivingIndex));
+                onWeightLayers: ToList(lipDrivingIndex), clipOutputDir: outputDir + "/Animations");
 
             EditorUtility.SetDirty(controller);
             AssetDatabase.SaveAssets();
@@ -590,7 +590,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             }
 
             var mask = CreateHeadOnlyMask(result.outputDir + "/Additive/Masks/VRCFT_HeadOnly.mask");
-            AddEyeTrackingLayer(controller, settings, eyeLookMotion, mask);
+            AddEyeTrackingLayer(controller, settings, eyeLookMotion, mask, result.outputDir + "/Additive/Animations/EyeLook");
             result.additiveController = controller;
 
             EditorUtility.SetDirty(controller);
@@ -623,7 +623,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
         /// <summary>
         /// Additive controller に EyeTrackingActive で Native/VRCFT を切り替える目回転レイヤーを追加する。
         /// </summary>
-        private static void AddEyeTrackingLayer(AnimatorController controller, VrcftAutoSetupSettings settings, Motion eyeLookMotion, AvatarMask mask)
+        private static void AddEyeTrackingLayer(AnimatorController controller, VrcftAutoSetupSettings settings, Motion eyeLookMotion, AvatarMask mask, string clipOutputDir)
         {
             var layer = new AnimatorControllerLayer
             {
@@ -647,23 +647,13 @@ namespace Kurotori.VrcftAutoSetup.Editor
             var vrcftTracking = vrcftState.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
             vrcftTracking.trackingEyes = VRC_AnimatorTrackingControl.TrackingType.Animation;
 
-            layer.stateMachine.defaultState = nativeState;
-
-            var toVrcft = nativeState.AddTransition(vrcftState);
-            toVrcft.hasExitTime = false;
-            toVrcft.duration = 0f;
-            toVrcft.AddCondition(AnimatorConditionMode.If, 0f, "EyeTrackingActive");
-
-            var toNative = vrcftState.AddTransition(nativeState);
-            toNative.hasExitTime = false;
-            toNative.duration = 0f;
-            toNative.AddCondition(AnimatorConditionMode.IfNot, 0f, "EyeTrackingActive");
+            ConfigureBoolDrivenAnyState(layer.stateMachine, settings, "EyeTrackingActive", offState: nativeState, onState: vrcftState, clipOutputDir);
         }
 
         // ============================================================
         // Layer 5/6: 制御 (TrackingControl)
         // ============================================================
-        private static void BuildControlLayer(AnimatorController controller, VrcftAutoSetupSettings settings, string layerName, string boolParam, bool trackingEyes, List<int> onWeightLayers, bool applyTrackingControl = true)
+        private static void BuildControlLayer(AnimatorController controller, VrcftAutoSetupSettings settings, string layerName, string boolParam, bool trackingEyes, List<int> onWeightLayers, string clipOutputDir, bool applyTrackingControl = true)
         {
             var layer = new AnimatorControllerLayer
             {
@@ -683,7 +673,6 @@ namespace Kurotori.VrcftAutoSetup.Editor
             offState.writeDefaultValues = settings.writeDefaults;
             var onState = sm.AddState(onName);
             onState.writeDefaultValues = settings.writeDefaults;
-            sm.defaultState = offState;
 
             if (applyTrackingControl)
             {
@@ -714,15 +703,58 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 }
             }
 
-            var toOn = offState.AddTransition(onState);
-            toOn.hasExitTime = false;
-            toOn.duration = 0f;
-            toOn.AddCondition(AnimatorConditionMode.If, 0f, boolParam);
+            ConfigureBoolDrivenAnyState(sm, settings, boolParam, offState, onState, clipOutputDir);
+        }
 
-            var toOff = onState.AddTransition(offState);
-            toOff.hasExitTime = false;
-            toOff.duration = 0f;
-            toOff.AddCondition(AnimatorConditionMode.IfNot, 0f, boolParam);
+        /// <summary>
+        /// Bool パラメーターのロード済み初期値に従って、Entry 直後から正しい制御ステートへ入る構造を作る。
+        /// </summary>
+        private static void ConfigureBoolDrivenAnyState(AnimatorStateMachine stateMachine, VrcftAutoSetupSettings settings, string boolParam, AnimatorState offState, AnimatorState onState, string clipOutputDir)
+        {
+            var emptyClip = CreateEmptyControlClip(clipOutputDir, stateMachine.name);
+            FillEmptyMotion(offState, emptyClip);
+            FillEmptyMotion(onState, emptyClip);
+
+            // TrackingControl は起動直後に OFF 側を経由すると状態が残ることがあるため、Entry は副作用のないダミーにする。
+            var entryState = stateMachine.AddState("Entry");
+            entryState.motion = emptyClip;
+            entryState.writeDefaultValues = settings.writeDefaults;
+            stateMachine.defaultState = entryState;
+
+            AddAnyStateTransition(stateMachine, onState, AnimatorConditionMode.If, boolParam);
+            AddAnyStateTransition(stateMachine, offState, AnimatorConditionMode.IfNot, boolParam);
+        }
+
+        /// <summary>
+        /// Motion 未設定の制御 State に、何も書き込まない AnimationClip を割り当てる。
+        /// </summary>
+        private static void FillEmptyMotion(AnimatorState state, AnimationClip emptyClip)
+        {
+            if (state.motion != null) return;
+            state.motion = emptyClip;
+        }
+
+        /// <summary>
+        /// 制御 State 用に、何も書き込まない AnimationClip アセットを作成する。
+        /// </summary>
+        private static AnimationClip CreateEmptyControlClip(string clipOutputDir, string stateMachineName)
+        {
+            // VRChat の animator 初期化では空 Motion がある前提の方が TrackingControl の初期適用が安定する。
+            string clipName = stateMachineName + "_Empty";
+            string path = clipOutputDir.TrimEnd('/') + "/" + clipName + ".anim";
+            return VrcftAssetUtility.CreateClip(path, clipName);
+        }
+
+        /// <summary>
+        /// Any State から指定ステートへ即時遷移する条件付き遷移を追加する。
+        /// </summary>
+        private static void AddAnyStateTransition(AnimatorStateMachine stateMachine, AnimatorState destination, AnimatorConditionMode mode, string boolParam)
+        {
+            var transition = stateMachine.AddAnyStateTransition(destination);
+            transition.hasExitTime = false;
+            transition.duration = 0f;
+            transition.canTransitionToSelf = false;
+            transition.AddCondition(mode, 0f, boolParam);
         }
 
         private static int FindLayerIndex(AnimatorController controller, string layerName)
