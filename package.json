@@ -1,7 +1,7 @@
 {
   "name": "com.kurotori.vrcft-auto-setup",
   "displayName": "VRCFT Auto Setup",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "unity": "2022.3",
   "description": "Unity Editor extension that generates VRChat Face Tracking (VRCFT) animation setup from a target avatar.",
   "license": "MIT",
@@ -14,7 +14,7 @@
     "com.vrchat.avatars": "3.10.x",
     "nadena.dev.modular-avatar": ">=1.17.0 <2.0.0"
   },
-  "url": "https://github.com/kurotori4423/vrcft-auto-setup/releases/download/v0.2.0/VRCFT.Auto.Setup_v0.2.0.zip",
+  "url": "https://github.com/kurotori4423/vrcft-auto-setup/releases/download/v0.3.0/VRCFT.Auto.Setup_v0.3.0.zip",
   "repo": "https://kurotori4423.github.io/vpm.kurotori4423/vpm.json",
   "changelogUrl": "https://github.com/kurotori4423/vrcft-auto-setup/releases"
 }
