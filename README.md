@@ -17,7 +17,7 @@
 
 VRChat Creator CompanionにVPMリポジトリを追加してから、プロジェクトに `VRCFT Auto Setup` を追加してください。
 
-[VCCにリポジトリを追加](vcc://vpm/addRepo?url=https://kurotori4423.github.io/vpm.kurotori4423/vpm.json)
+[![VCCにリポジトリを追加](https://img.shields.io/badge/VCC-リポジトリを追加-2ea44f?style=for-the-badge)](vcc://vpm/addRepo?url=https://kurotori4423.github.io/vpm.kurotori4423/vpm.json)
 
 手動で追加する場合は、以下のURLを使用してください。
 
