@@ -48,7 +48,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
         /// <summary>目回転を Additive Playable Layer に合成するための AnimatorController。</summary>
         public AnimatorController additiveController;
 
-        /// <summary>同期パラメーター一覧 (Phase C の MA Parameters 構築用)。</summary>
+        /// <summary>MA Parameters に登録するパラメーター一覧。</summary>
         public List<VrcftSyncedParameter> syncedParameters = new List<VrcftSyncedParameter>();
 
         /// <summary>生成先ディレクトリ ("Assets/VrcftAutoSetup/Generated/&lt;アバター名&gt;")。</summary>

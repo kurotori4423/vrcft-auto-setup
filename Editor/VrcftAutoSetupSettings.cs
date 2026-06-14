@@ -14,6 +14,19 @@ namespace Kurotori.VrcftAutoSetup.Editor
     }
 
     /// <summary>
+    /// 生成する Animator State の Write Defaults 方針。
+    /// </summary>
+    public enum VrcftWriteDefaultsMode
+    {
+        /// <summary>全ステートを Write Defaults On で生成する。</summary>
+        On = 0,
+        /// <summary>原則 Off にし、AAP/Direct BlendTree など On が必要なステートだけ On にする。</summary>
+        Mix = 1,
+        /// <summary>全ステートを Write Defaults Off で生成する。スムージングは使用不可。</summary>
+        Off = 2,
+    }
+
+    /// <summary>
     /// 生成オプション。
     /// </summary>
     [Serializable]
@@ -46,8 +59,8 @@ namespace Kurotori.VrcftAutoSetup.Editor
         /// <summary>Expression メニューを生成するか。</summary>
         public bool addMenu = true;
 
-        /// <summary>生成ステートの WriteDefaults。</summary>
-        public bool writeDefaults = true;
+        /// <summary>生成ステートの Write Defaults 方針。</summary>
+        public VrcftWriteDefaultsMode writeDefaultsMode = VrcftWriteDefaultsMode.On;
 
         /// <summary>生成アセットの出力フォルダ。</summary>
         public string outputFolder = "Assets/VrcftAutoSetup/Generated";

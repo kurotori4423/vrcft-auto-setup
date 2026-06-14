@@ -24,7 +24,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             string clipOutputDir,
             VrcftGenerationResult result)
         {
-            string SmoothName(string param) => settings.enableSmoothing ? "OSCm/Smooth/" + param : param;
+            string SmoothName(string param) => VrcftAnimatorGenerator.UseSmoothing(settings) ? "OSCm/Smooth/" + param : param;
             const string blendSet = "OSCm/BlendSet";
 
             string leftX = SmoothName("FT/v2/EyeLeftX");

@@ -98,7 +98,22 @@ namespace Kurotori.VrcftAutoSetup.Editor
                     }
                 }
 
-                _settings.enableSmoothing = EditorGUILayout.Toggle("スムージング", _settings.enableSmoothing);
+                _settings.writeDefaultsMode = (VrcftWriteDefaultsMode)EditorGUILayout.EnumPopup("Write Defaults", _settings.writeDefaultsMode);
+
+                bool smoothingAllowed = _settings.writeDefaultsMode != VrcftWriteDefaultsMode.Off;
+                if (!smoothingAllowed)
+                {
+                    _settings.enableSmoothing = false;
+                }
+
+                using (new EditorGUI.DisabledScope(!smoothingAllowed))
+                {
+                    _settings.enableSmoothing = EditorGUILayout.Toggle("スムージング", _settings.enableSmoothing);
+                }
+                if (!smoothingAllowed)
+                {
+                    EditorGUILayout.HelpBox("Write Defaults Off では AAP を使うスムージングが不安定なため無効化されます。", MessageType.Info);
+                }
                 if (_settings.enableSmoothing)
                 {
                     using (new EditorGUI.IndentLevelScope())
@@ -118,7 +133,6 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 }
 
                 _settings.addMenu = EditorGUILayout.Toggle("メニュー生成", _settings.addMenu);
-                _settings.writeDefaults = EditorGUILayout.Toggle("Write Defaults", _settings.writeDefaults);
                 _settings.outputFolder = EditorGUILayout.TextField("出力フォルダ", _settings.outputFolder);
             }
         }

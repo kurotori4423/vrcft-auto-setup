@@ -73,7 +73,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 BuildBinaryDecodeLayer(controller, settings, targets, outputDir + "/Animations/Binary", result);
             }
 
-            if (settings.enableSmoothing)
+            if (UseSmoothing(settings))
             {
                 BuildSmoothingLayer(controller, settings, targets, outputDir + "/Animations/Smooth");
             }
@@ -190,6 +190,39 @@ namespace Kurotori.VrcftAutoSetup.Editor
             result.syncedParameters.Add(new VrcftSyncedParameter("EyeTrackingActive", VrcftParameterKind.Bool, 0f, saved: true));
             result.syncedParameters.Add(new VrcftSyncedParameter("LipTrackingActive", VrcftParameterKind.Bool, 0f, saved: true));
             result.syncedParameters.Add(new VrcftSyncedParameter(LocalSmoothing, VrcftParameterKind.Float, settings.localSmoothness, saved: true, localOnly: true));
+
+            AddDebugParameters(settings, targets, result);
+        }
+
+        /// <summary>
+        /// Animator 内部値を Gesture Manager 等で確認できるよう、非同期の診断用パラメーターを MA Parameters に登録する。
+        /// </summary>
+        private static void AddDebugParameters(VrcftAutoSetupSettings settings, List<Target> targets, VrcftGenerationResult result)
+        {
+            foreach (var t in targets)
+            {
+                string full = t.Entry.FullName;
+
+                if (settings.useBinary)
+                {
+                    // Binary 入力から復元された Float 値を Expressions に載せつつ、ネットワーク同期は行わない。
+                    AddParameterIfMissing(result, new VrcftSyncedParameter(full, VrcftParameterKind.Float, t.Entry.DefaultValue, saved: false, localOnly: true));
+                }
+
+                if (UseSmoothing(settings))
+                {
+                    AddParameterIfMissing(result, new VrcftSyncedParameter(SmoothPrefix + full, VrcftParameterKind.Float, t.Entry.DefaultValue, saved: false, localOnly: true));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 同名パラメーターを重複登録しないように MA Parameters 用リストへ追加する。
+        /// </summary>
+        private static void AddParameterIfMissing(VrcftGenerationResult result, VrcftSyncedParameter parameter)
+        {
+            if (result.syncedParameters.Any(p => p.name == parameter.name)) return;
+            result.syncedParameters.Add(parameter);
         }
 
         /// <summary>
@@ -228,7 +261,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
                     }
                 }
 
-                if (settings.enableSmoothing)
+                if (UseSmoothing(settings))
                 {
                     VrcftAssetUtility.CheckAndCreateParameter(controller, SmoothPrefix + full, AnimatorControllerParameterType.Float,
                         defaultFloat: t.Entry.DefaultValue);
@@ -251,7 +284,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             }
             master.children = children.ToArray();
 
-            AddSingleStateLayer(controller, "VRCFT_BinaryDecode", master, settings.writeDefaults);
+            AddSingleStateLayer(controller, "VRCFT_BinaryDecode", master, NormalWriteDefaults(settings));
         }
 
         private static BlendTree BuildDecodeTree(AnimatorController controller, Target t, string clipOutputDir, VrcftGenerationResult result)
@@ -332,13 +365,17 @@ namespace Kurotori.VrcftAutoSetup.Editor
             var localTree = BuildSmoothMaster(controller, settings, targets, LocalSmoothing, "Smooth_Local_Master", clipOutputDir, clipCache);
             var remoteTree = BuildSmoothMaster(controller, settings, targets, RemoteSmoothing, "Smooth_Remote_Master", clipOutputDir, clipCache);
 
-            var localState = sm.AddState("Local");
-            localState.motion = localTree;
-            localState.writeDefaultValues = settings.writeDefaults;
+            bool smoothingWriteDefaults = SmoothingWriteDefaults(settings);
+            // AAP を Direct BlendTree で保持する state は WD On 前提なので、検査時に判別できるよう名前へ明示する。
+            string smoothingStateSuffix = smoothingWriteDefaults ? " (WD ON)" : string.Empty;
 
-            var remoteState = sm.AddState("Remote");
+            var localState = sm.AddState("Local" + smoothingStateSuffix);
+            localState.motion = localTree;
+            localState.writeDefaultValues = smoothingWriteDefaults;
+
+            var remoteState = sm.AddState("Remote" + smoothingStateSuffix);
             remoteState.motion = remoteTree;
-            remoteState.writeDefaultValues = settings.writeDefaults;
+            remoteState.writeDefaultValues = smoothingWriteDefaults;
 
             sm.defaultState = localState;
 
@@ -449,14 +486,14 @@ namespace Kurotori.VrcftAutoSetup.Editor
             master.children = children.ToArray();
 
             // defaultWeight = 0: 制御レイヤーの LayerControl がONにするまで動かない。
-            AddSingleStateLayer(controller, layerName, master, settings.writeDefaults, defaultWeight: 0f);
+            AddSingleStateLayer(controller, layerName, master, NormalWriteDefaults(settings), defaultWeight: 0f);
         }
 
         private static Motion BuildDriveTree(VRCAvatarDescriptor avatar, AnimatorController controller, VrcftAutoSetupSettings settings, Target t, VrcftGenerationResult result)
         {
             string full = t.Entry.FullName;
             string fileBase = full.Replace('/', '_');
-            string drive = settings.enableSmoothing ? SmoothPrefix + full : full;
+            string drive = UseSmoothing(settings) ? SmoothPrefix + full : full;
 
             // 全対象シェイプ (この駆動ツリーが触る全スロット) を集める
             var allSlots = t.Match.SlotMatches;
@@ -548,6 +585,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             return tree;
         }
 
+
         // ============================================================
         // Additive: Humanoid EyeLook
         // ============================================================
@@ -584,7 +622,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 BuildBinaryDecodeLayer(controller, settings, eyeTargets, result.outputDir + "/Additive/Animations/Binary", result);
             }
 
-            if (settings.enableSmoothing)
+            if (UseSmoothing(settings))
             {
                 BuildSmoothingLayer(controller, settings, eyeTargets, result.outputDir + "/Additive/Animations/Smooth");
             }
@@ -637,13 +675,13 @@ namespace Kurotori.VrcftAutoSetup.Editor
             controller.AddLayer(layer);
 
             var nativeState = layer.stateMachine.AddState("Native Eye Tracking");
-            nativeState.writeDefaultValues = settings.writeDefaults;
+            nativeState.writeDefaultValues = NormalWriteDefaults(settings);
             var nativeTracking = nativeState.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
             nativeTracking.trackingEyes = VRC_AnimatorTrackingControl.TrackingType.Tracking;
 
             var vrcftState = layer.stateMachine.AddState("VRCFT Eye Tracking");
             vrcftState.motion = eyeLookMotion;
-            vrcftState.writeDefaultValues = settings.writeDefaults;
+            vrcftState.writeDefaultValues = NormalWriteDefaults(settings);
             var vrcftTracking = vrcftState.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
             vrcftTracking.trackingEyes = VRC_AnimatorTrackingControl.TrackingType.Animation;
 
@@ -670,9 +708,9 @@ namespace Kurotori.VrcftAutoSetup.Editor
             string onName = trackingEyes ? "FT_On" : "Lip_On";
 
             var offState = sm.AddState(offName);
-            offState.writeDefaultValues = settings.writeDefaults;
+            offState.writeDefaultValues = NormalWriteDefaults(settings);
             var onState = sm.AddState(onName);
-            onState.writeDefaultValues = settings.writeDefaults;
+            onState.writeDefaultValues = NormalWriteDefaults(settings);
 
             if (applyTrackingControl)
             {
@@ -718,7 +756,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             // TrackingControl は起動直後に OFF 側を経由すると状態が残ることがあるため、Entry は副作用のないダミーにする。
             var entryState = stateMachine.AddState("Entry");
             entryState.motion = emptyClip;
-            entryState.writeDefaultValues = settings.writeDefaults;
+            entryState.writeDefaultValues = NormalWriteDefaults(settings);
             stateMachine.defaultState = entryState;
 
             AddAnyStateTransition(stateMachine, onState, AnimatorConditionMode.If, boolParam);
@@ -779,6 +817,30 @@ namespace Kurotori.VrcftAutoSetup.Editor
             lc.layer = layerIndex;
             lc.goalWeight = goalWeight;
             lc.blendDuration = 0.1f;
+        }
+
+        /// <summary>
+        /// スムージングの実効有効状態を返す。
+        /// </summary>
+        internal static bool UseSmoothing(VrcftAutoSetupSettings settings)
+        {
+            return settings.enableSmoothing && settings.writeDefaultsMode != VrcftWriteDefaultsMode.Off;
+        }
+
+        /// <summary>
+        /// 通常ステートに適用する Write Defaults 値を返す。
+        /// </summary>
+        private static bool NormalWriteDefaults(VrcftAutoSetupSettings settings)
+        {
+            return settings.writeDefaultsMode == VrcftWriteDefaultsMode.On;
+        }
+
+        /// <summary>
+        /// AAP を Direct BlendTree で書くスムージングステートに適用する Write Defaults 値を返す。
+        /// </summary>
+        private static bool SmoothingWriteDefaults(VrcftAutoSetupSettings settings)
+        {
+            return settings.writeDefaultsMode != VrcftWriteDefaultsMode.Off;
         }
 
         // ============================================================
