@@ -17,6 +17,22 @@ namespace Kurotori.VrcftAutoSetup.Editor
 
         /// <summary>EyeLid専用スロット種別 ("blink"/"wide")。通常スロットでは null。</summary>
         public string SlotKind;
+
+        /// <summary>手動指定によって選ばれたマッチか。</summary>
+        public bool IsManual;
+    }
+
+    /// <summary>
+    /// 1スロットの手動割り当て情報。
+    /// </summary>
+    public sealed class ManualSlotOverride
+    {
+        public ShapeSlot Slot;
+        public string SlotKind;
+        public string DisplayName;
+
+        /// <summary>未入力なら自動検知結果を使う。入力時はこの名前に一致するシェイプを優先する。</summary>
+        public string BlendShapeName;
     }
 
     /// <summary>
@@ -26,15 +42,22 @@ namespace Kurotori.VrcftAutoSetup.Editor
     {
         public VrcftCatalogEntry Entry;
         public List<SlotMatch> SlotMatches = new List<SlotMatch>();
+        public List<ManualSlotOverride> ManualOverrides = new List<ManualSlotOverride>();
 
         /// <summary>UI操作用: 生成対象として有効か。</summary>
         public bool Enabled = true;
+
+        /// <summary>UI操作用: 手動割り当て欄を表示するか。</summary>
+        public bool ShowManualSettings;
 
         /// <summary>Binary時のビット数 (UIで上書き可能)。初期値はカタログのDefaultBinaryBits。</summary>
         public int Bits;
 
         /// <summary>1つ以上のシェイプがマッチしたか。</summary>
         public bool HasAnyMatch => SlotMatches.Count > 0;
+
+        /// <summary>手動割り当てが1つ以上入力されているか。</summary>
+        public bool HasManualOverride => ManualOverrides.Any(o => !string.IsNullOrWhiteSpace(o.BlendShapeName));
 
         /// <summary>マッチしたシェイプ名をカンマ区切りで返す (UI表示用)。</summary>
         public string MatchedShapesLabel

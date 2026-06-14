@@ -202,6 +202,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             // ヘッダー
             using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
             {
+                EditorGUILayout.LabelField("手動", GUILayout.Width(36));
                 EditorGUILayout.LabelField("有効", GUILayout.Width(36));
                 EditorGUILayout.LabelField("パラメーター", GUILayout.Width(140));
                 EditorGUILayout.LabelField("ビット", GUILayout.Width(50));
@@ -217,11 +218,15 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 if ((int)m.Entry.Preset > (int)_settings.preset) continue;
 
                 bool matched = m.HasAnyMatch;
+                bool canEnable = matched || m.HasManualOverride;
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    using (new EditorGUI.DisabledScope(!matched))
+                    var foldoutRect = GUILayoutUtility.GetRect(36f, EditorGUIUtility.singleLineHeight, GUILayout.Width(36));
+                    m.ShowManualSettings = EditorGUI.Foldout(foldoutRect, m.ShowManualSettings, string.Empty, true);
+
+                    using (new EditorGUI.DisabledScope(!canEnable))
                     {
-                        m.Enabled = EditorGUILayout.Toggle(m.Enabled && matched, GUILayout.Width(36));
+                        m.Enabled = EditorGUILayout.Toggle(m.Enabled && canEnable, GUILayout.Width(36));
                     }
 
                     var labelStyle = matched ? EditorStyles.label : grayStyle;
@@ -234,9 +239,33 @@ namespace Kurotori.VrcftAutoSetup.Editor
 
                     EditorGUILayout.LabelField(m.MatchedShapesLabel, matched ? EditorStyles.label : grayStyle);
                 }
+
+                if (m.ShowManualSettings)
+                {
+                    DrawManualOverrides(m);
+                }
             }
 
             EditorGUILayout.EndScrollView();
+        }
+
+        /// <summary>
+        /// 自動検知で拾えない接頭辞・接尾辞付きシェイプや誤検知を、スロット単位で手動上書きする欄を描画する。
+        /// </summary>
+        private void DrawManualOverrides(ParameterMatch match)
+        {
+            using (new EditorGUI.IndentLevelScope())
+            {
+                foreach (var manual in match.ManualOverrides)
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Space(36);
+                        EditorGUILayout.LabelField(manual.DisplayName, GUILayout.Width(180));
+                        manual.BlendShapeName = EditorGUILayout.TextField(manual.BlendShapeName ?? string.Empty);
+                    }
+                }
+            }
         }
 
         private void DrawGenerateButton()

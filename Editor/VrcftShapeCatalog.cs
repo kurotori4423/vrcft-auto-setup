@@ -147,62 +147,62 @@ namespace Kurotori.VrcftAutoSetup.Editor
             // EyeLeftX / EyeRightX : ボーン駆動が基本だがシェイプ駆動エイリアスも定義。
             // 正側=外向き(Out)、負側=内向き(In)とする。
             list.Add(new VrcftCatalogEntry("EyeLeftX", true,
-                Slots(S("eyeLookOutLeft", "EyeLeftX", "Eye_Left_Right")),
-                Slots(S("eyeLookInLeft")),
+                Slots(S("eyeLookOutLeft", "EyeLeftX", "Eye_Left_Right", "EYES_LOOK_OUT_L")),
+                Slots(S("eyeLookInLeft", "EYES_LOOK_IN_L")),
                 4, VrcftPreset.Minimal));
             list.Add(new VrcftCatalogEntry("EyeRightX", true,
-                Slots(S("eyeLookOutRight", "EyeRightX", "Eye_Right_Right")),
-                Slots(S("eyeLookInRight")),
+                Slots(S("eyeLookOutRight", "EyeRightX", "Eye_Right_Right", "EYES_LOOK_OUT_R")),
+                Slots(S("eyeLookInRight", "EYES_LOOK_IN_R")),
                 4, VrcftPreset.Minimal));
             // EyeY : 上下。正側=上(Up)、負側=下(Down)。
             list.Add(new VrcftCatalogEntry("EyeY", true,
-                Slots(S("eyeLookUpLeft", "eyeLookUpRight", "EyeUp", "Eye_Up")),
-                Slots(S("eyeLookDownLeft", "eyeLookDownRight", "EyeDown", "Eye_Down")),
+                Slots(S("eyeLookUpLeft", "eyeLookUpRight", "EyeUp", "Eye_Up", "EYES_LOOK_UP_L", "EYES_LOOK_UP_R")),
+                Slots(S("eyeLookDownLeft", "eyeLookDownRight", "EyeDown", "Eye_Down", "EYES_LOOK_DOWN_L", "EYES_LOOK_DOWN_R")),
                 4, VrcftPreset.Minimal));
 
             // EyeLid (専用構造): 0..1, default 0.75。0-0.75=閉眼(blink逆向き), 0.75-1=見開き(wide)。
             list.Add(new VrcftCatalogEntry("EyeLidLeft", false, None, None, 4, VrcftPreset.Minimal,
                 defaultValue: 0.75f, isEyeLid: true,
-                eyeLidBlink: S("eyeBlinkLeft", "EyeClosedLeft", "Eye_Left_Blink"),
-                eyeLidWide: S("eyeWideLeft", "EyeWideLeft", "Eye_Left_Wide")));
+                eyeLidBlink: S("eyeBlinkLeft", "EyeClosedLeft", "Eye_Left_Blink", "EYES_CLOSED_L"),
+                eyeLidWide: S("eyeWideLeft", "EyeWideLeft", "Eye_Left_Wide", "EYES_WIDEN_L")));
             list.Add(new VrcftCatalogEntry("EyeLidRight", false, None, None, 4, VrcftPreset.Minimal,
                 defaultValue: 0.75f, isEyeLid: true,
-                eyeLidBlink: S("eyeBlinkRight", "EyeClosedRight", "Eye_Right_Blink"),
-                eyeLidWide: S("eyeWideRight", "EyeWideRight", "Eye_Right_Wide")));
+                eyeLidBlink: S("eyeBlinkRight", "EyeClosedRight", "Eye_Right_Blink", "EYES_CLOSED_R"),
+                eyeLidWide: S("eyeWideRight", "EyeWideRight", "Eye_Right_Wide", "EYES_WIDEN_R")));
 
             // EyeSquint (Full)
             list.Add(new VrcftCatalogEntry("EyeSquintLeft", false,
-                Slots(S("eyeSquintLeft", "EyeSquintLeft", "Eye_Left_Squint")), None,
+                Slots(S("eyeSquintLeft", "EyeSquintLeft", "Eye_Left_Squint", "EYES_SQUINT_L")), None,
                 3, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("EyeSquintRight", false,
-                Slots(S("eyeSquintRight", "EyeSquintRight", "Eye_Right_Squint")), None,
+                Slots(S("eyeSquintRight", "EyeSquintRight", "Eye_Right_Squint", "EYES_SQUINT_R")), None,
                 3, VrcftPreset.Full));
 
             // =========================== Brow系 ===========================
             // BrowExpression : 正=上げ(browUp系), 負=下げ(browDown系)。
             // ARKit の browInnerUp は両側一体のため左右どちらにも候補として含める。
             list.Add(new VrcftCatalogEntry("BrowExpressionLeft", true,
-                Slots(S("browOuterUpLeft", "browInnerUp", "BrowUpLeft", "Brow_Left_Up")),
-                Slots(S("browDownLeft", "BrowDownLeft", "Brow_Left_Down")),
+                Slots(S("browOuterUpLeft", "browInnerUp", "BrowUpLeft", "Brow_Left_Up", "OUTER_BROW_RAISER_L")),
+                Slots(S("browDownLeft", "BrowDownLeft", "Brow_Left_Down", "BROW_LOWERER_L")),
                 3, VrcftPreset.Standard));
             list.Add(new VrcftCatalogEntry("BrowExpressionRight", true,
-                Slots(S("browOuterUpRight", "browInnerUp", "BrowUpRight", "Brow_Right_Up")),
-                Slots(S("browDownRight", "BrowDownRight", "Brow_Right_Down")),
+                Slots(S("browOuterUpRight", "browInnerUp", "BrowUpRight", "Brow_Right_Up", "OUTER_BROW_RAISER_R")),
+                Slots(S("browDownRight", "BrowDownRight", "Brow_Right_Down", "BROW_LOWERER_R")),
                 3, VrcftPreset.Standard));
 
             // Full時の個別 (ARKitにはbrowInnerUp/browDownL/R/browOuterUpL/Rのみなのでエイリアス薄め)
             list.Add(new VrcftCatalogEntry("BrowInnerUpLeft", false,
-                Slots(S("browInnerUp", "BrowInnerUpLeft")), None, 2, VrcftPreset.Full));
+                Slots(S("browInnerUp", "BrowInnerUpLeft", "INNER_BROW_RAISER_L")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("BrowInnerUpRight", false,
-                Slots(S("browInnerUp", "BrowInnerUpRight")), None, 2, VrcftPreset.Full));
+                Slots(S("browInnerUp", "BrowInnerUpRight", "INNER_BROW_RAISER_R")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("BrowOuterUpLeft", false,
-                Slots(S("browOuterUpLeft", "BrowOuterUpLeft")), None, 2, VrcftPreset.Full));
+                Slots(S("browOuterUpLeft", "BrowOuterUpLeft", "OUTER_BROW_RAISER_L")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("BrowOuterUpRight", false,
-                Slots(S("browOuterUpRight", "BrowOuterUpRight")), None, 2, VrcftPreset.Full));
+                Slots(S("browOuterUpRight", "BrowOuterUpRight", "OUTER_BROW_RAISER_R")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("BrowLowererLeft", false,
-                Slots(S("browDownLeft", "BrowLowererLeft")), None, 2, VrcftPreset.Full));
+                Slots(S("browDownLeft", "BrowLowererLeft", "BROW_LOWERER_L")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("BrowLowererRight", false,
-                Slots(S("browDownRight", "BrowLowererRight")), None, 2, VrcftPreset.Full));
+                Slots(S("browDownRight", "BrowLowererRight", "BROW_LOWERER_R")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("BrowPinchLeft", false,
                 Slots(S("BrowPinchLeft")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("BrowPinchRight", false,
@@ -210,18 +210,18 @@ namespace Kurotori.VrcftAutoSetup.Editor
 
             // =========================== Jaw/Mouth系 ===========================
             list.Add(new VrcftCatalogEntry("JawOpen", false,
-                Slots(S("jawOpen", "JawOpen", "Jaw_Open")), None,
+                Slots(S("jawOpen", "JawOpen", "Jaw_Open", "JAW_DROP")), None,
                 4, VrcftPreset.Minimal));
             // JawX : 正=右(jawRight), 負=左(jawLeft)
             list.Add(new VrcftCatalogEntry("JawX", true,
-                Slots(S("jawRight", "JawRight", "Jaw_Right")),
-                Slots(S("jawLeft", "JawLeft", "Jaw_Left")),
+                Slots(S("jawRight", "JawRight", "Jaw_Right", "JAW_SIDEWAYS_RIGHT")),
+                Slots(S("jawLeft", "JawLeft", "Jaw_Left", "JAW_SIDEWAYS_LEFT")),
                 3, VrcftPreset.Standard));
             list.Add(new VrcftCatalogEntry("JawForward", false,
-                Slots(S("jawForward", "JawForward", "Jaw_Forward")), None,
+                Slots(S("jawForward", "JawForward", "Jaw_Forward", "JAW_THRUST")), None,
                 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("MouthClosed", false,
-                Slots(S("mouthClose", "MouthClosed", "Mouth_Close")), None,
+                Slots(S("mouthClose", "MouthClosed", "Mouth_Close", "LIPS_TOWARD")), None,
                 3, VrcftPreset.Minimal));
             // MouthX : 口全体の横移動。正=右(mouthRight), 負=左(mouthLeft)
             list.Add(new VrcftCatalogEntry("MouthX", true,
@@ -230,20 +230,20 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 3, VrcftPreset.Standard));
             // SmileFrown : 正=smile, 負=frown
             list.Add(new VrcftCatalogEntry("SmileFrownLeft", true,
-                Slots(S("mouthSmileLeft", "MouthSmileLeft", "Mouth_Smile_Left")),
-                Slots(S("mouthFrownLeft", "MouthFrownLeft", "Mouth_Frown_Left")),
+                Slots(S("mouthSmileLeft", "MouthSmileLeft", "Mouth_Smile_Left", "LIP_CORNER_PULLER_L")),
+                Slots(S("mouthFrownLeft", "MouthFrownLeft", "Mouth_Frown_Left", "LIP_CORNER_DEPRESSOR_L")),
                 4, VrcftPreset.Minimal));
             list.Add(new VrcftCatalogEntry("SmileFrownRight", true,
-                Slots(S("mouthSmileRight", "MouthSmileRight", "Mouth_Smile_Right")),
-                Slots(S("mouthFrownRight", "MouthFrownRight", "Mouth_Frown_Right")),
+                Slots(S("mouthSmileRight", "MouthSmileRight", "Mouth_Smile_Right", "LIP_CORNER_PULLER_R")),
+                Slots(S("mouthFrownRight", "MouthFrownRight", "Mouth_Frown_Right", "LIP_CORNER_DEPRESSOR_R")),
                 4, VrcftPreset.Minimal));
             // MouthUpperUp : 左右2スロット
             list.Add(new VrcftCatalogEntry("MouthUpperUp", false,
-                Slots(S("mouthUpperUpLeft", "MouthUpperUpLeft"), S("mouthUpperUpRight", "MouthUpperUpRight")), None,
+                Slots(S("mouthUpperUpLeft", "MouthUpperUpLeft", "Mouth_Upper_Up_Left", "UPPER_LIP_RAISER_L"), S("mouthUpperUpRight", "MouthUpperUpRight", "Mouth_Upper_Up_Right", "UPPER_LIP_RAISER_R")), None,
                 3, VrcftPreset.Standard));
             // MouthLowerDown : 左右2スロット
             list.Add(new VrcftCatalogEntry("MouthLowerDown", false,
-                Slots(S("mouthLowerDownLeft", "MouthLowerDownLeft"), S("mouthLowerDownRight", "MouthLowerDownRight")), None,
+                Slots(S("mouthLowerDownLeft", "MouthLowerDownLeft", "Mouth_Lower_Down_Left", "LOWER_LIP_DEPRESSER_L"), S("mouthLowerDownRight", "MouthLowerDownRight", "Mouth_Lower_Down_Right", "LOWER_LIP_DEPRESSOR_R")), None,
                 3, VrcftPreset.Standard));
             list.Add(new VrcftCatalogEntry("LipPucker", false,
                 Slots(S("mouthPucker", "LipPucker", "Mouth_Pout")), None,
@@ -253,40 +253,40 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 3, VrcftPreset.Standard));
             // MouthStretch (Full)
             list.Add(new VrcftCatalogEntry("MouthStretchLeft", false,
-                Slots(S("mouthStretchLeft", "MouthStretchLeft")), None, 2, VrcftPreset.Full));
+                Slots(S("mouthStretchLeft", "MouthStretchLeft", "LIP_STRETCHER_L")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("MouthStretchRight", false,
-                Slots(S("mouthStretchRight", "MouthStretchRight")), None, 2, VrcftPreset.Full));
+                Slots(S("mouthStretchRight", "MouthStretchRight", "LIP_STRETCHER_R")), None, 2, VrcftPreset.Full));
             // MouthPress : 左右2スロット (Full)
             list.Add(new VrcftCatalogEntry("MouthPress", false,
-                Slots(S("mouthPressLeft", "MouthPressLeft"), S("mouthPressRight", "MouthPressRight")), None,
+                Slots(S("mouthPressLeft", "MouthPressLeft", "LIP_PRESSOR_L"), S("mouthPressRight", "MouthPressRight", "LIP_PRESSOR_R")), None,
                 2, VrcftPreset.Full));
             // MouthDimple : 左右2スロット (Full)
             list.Add(new VrcftCatalogEntry("MouthDimple", false,
-                Slots(S("mouthDimpleLeft", "MouthDimpleLeft"), S("mouthDimpleRight", "MouthDimpleRight")), None,
+                Slots(S("mouthDimpleLeft", "MouthDimpleLeft", "DIMPLER_L"), S("mouthDimpleRight", "MouthDimpleRight", "DIMPLER_R")), None,
                 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("MouthRaiserUpper", false,
-                Slots(S("mouthShrugUpper", "MouthRaiserUpper")), None, 2, VrcftPreset.Full));
+                Slots(S("mouthShrugUpper", "MouthRaiserUpper", "CHIN_RAISER_T")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("MouthRaiserLower", false,
-                Slots(S("mouthShrugLower", "MouthRaiserLower")), None, 2, VrcftPreset.Full));
+                Slots(S("mouthShrugLower", "MouthRaiserLower", "Mouth_Lower_Overlay", "CHIN_RAISER_B")), None, 2, VrcftPreset.Full));
 
             // =========================== Cheek/Nose系 ===========================
             // CheekPuffSuck : 一体型。正=puff (ARKitはcheekPuff一体), 負=suck (無ければ空)
             list.Add(new VrcftCatalogEntry("CheekPuffSuck", true,
-                Slots(S("cheekPuff", "CheekPuffLeft", "CheekPuffRight", "Cheek_Puff")),
-                Slots(S("cheekSuck", "CheekSuckLeft", "CheekSuckRight", "Cheek_Suck")),
+                Slots(S("cheekPuff", "CheekPuffLeft", "CheekPuffRight", "Cheek_Puff", "CHEEK_PUFF_L", "CHEEK_PUFF_R")),
+                Slots(S("cheekSuck", "CheekSuckLeft", "CheekSuckRight", "Cheek_Suck", "CHEEK_SUCK_L", "CHEEK_SUCK_R")),
                 3, VrcftPreset.Standard));
             list.Add(new VrcftCatalogEntry("CheekSquintLeft", false,
-                Slots(S("cheekSquintLeft", "CheekSquintLeft")), None, 2, VrcftPreset.Full));
+                Slots(S("cheekSquintLeft", "CheekSquintLeft", "CHEEK_RAISER_L")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("CheekSquintRight", false,
-                Slots(S("cheekSquintRight", "CheekSquintRight")), None, 2, VrcftPreset.Full));
+                Slots(S("cheekSquintRight", "CheekSquintRight", "CHEEK_RAISER_R")), None, 2, VrcftPreset.Full));
             // NoseSneer : 左右2スロット (Full)
             list.Add(new VrcftCatalogEntry("NoseSneer", false,
-                Slots(S("noseSneerLeft", "NoseSneerLeft"), S("noseSneerRight", "NoseSneerRight")), None,
+                Slots(S("noseSneerLeft", "NoseSneerLeft", "NOSE_WRINKLER_L"), S("noseSneerRight", "NoseSneerRight", "NOSE_WRINKLER_R")), None,
                 2, VrcftPreset.Full));
 
             // =========================== Tongue系 ===========================
             list.Add(new VrcftCatalogEntry("TongueOut", false,
-                Slots(S("tongueOut", "TongueOut", "Tongue_LongStep1")), None,
+                Slots(S("tongueOut", "TongueOut", "Tongue_LongStep1", "Tongue_LongStep2", "TONGUE_OUT")), None,
                 3, VrcftPreset.Standard));
             // TongueX / TongueY : ARKit標準には無い (Full)
             list.Add(new VrcftCatalogEntry("TongueX", true,

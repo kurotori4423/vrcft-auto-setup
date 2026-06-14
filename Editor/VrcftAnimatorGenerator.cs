@@ -40,6 +40,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
         public static VrcftGenerationResult Generate(VRCAvatarDescriptor avatar, VrcftDetectionReport report, VrcftAutoSetupSettings settings)
         {
             var result = new VrcftGenerationResult();
+            VrcftAvatarDetector.ApplyManualOverrides(avatar, report);
 
             string baseFolder = settings.outputFolder.Replace('\\', '/').TrimEnd('/');
             string outputDir = baseFolder + "/" + Sanitize(report.AvatarName);
