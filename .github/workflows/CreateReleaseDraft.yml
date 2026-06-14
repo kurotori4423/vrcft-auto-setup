@@ -1,0 +1,104 @@
+name: Create Unity Package Release Draft
+
+# VPM登録に必要なzipとpackage.jsonをリリースアセットとしてまとめる。
+on:
+  workflow_call:
+    inputs:
+      tag_name:
+        description: Tag name for the release
+        required: false
+        type: string
+        default: ''
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Tag name for the release
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Get package info
+        id: package_info
+        run: |
+          test -f package.json
+          DISPLAY_NAME=$(jq -r '.displayName // .name' package.json)
+          VERSION=$(jq -r '.version' package.json)
+          FILE_NAME=$(jq -r '(.displayName // .name) | gsub("[^A-Za-z0-9._-]+"; ".") | gsub("^\\.|\\.$"; "")' package.json)
+
+          if [ "$DISPLAY_NAME" = "null" ] || [ -z "$DISPLAY_NAME" ]; then
+            echo "displayName or name is required"
+            exit 1
+          fi
+
+          if [ "$VERSION" = "null" ] || [ -z "$VERSION" ]; then
+            echo "version is required"
+            exit 1
+          fi
+
+          echo "display_name=$DISPLAY_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "package_name=${FILE_NAME}_v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Remove repository-only folders
+        run: |
+          rm -rf .git
+          rm -rf .github
+
+      - name: Create meta file list
+        run: |
+          find . -name "*.meta" -not -path "./output/*" > metaList
+          cat metaList
+
+      - name: Create output directory
+        run: mkdir -p output
+
+      - name: Create Unity Package
+        uses: pCYSl5EDgo/create-unitypackage@master
+        with:
+          package-path: output/${{ steps.package_info.outputs.package_name }}.unitypackage
+          include-files: metaList
+
+      - name: Create zip file
+        run: |
+          zip -r "output/${{ steps.package_info.outputs.package_name }}.zip" . -x "metaList" "output/*"
+
+      - name: Copy package.json
+        run: cp package.json output/
+
+      - name: Determine tag name
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            TAG_NAME="${{ inputs.tag_name }}"
+          else
+            TAG_NAME="v${{ steps.package_info.outputs.version }}"
+          fi
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Create release draft
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag_name }}
+          name: ${{ steps.package_info.outputs.display_name }} v${{ steps.package_info.outputs.version }}
+          draft: true
+          generate_release_notes: true
+          files: |
+            output/${{ steps.package_info.outputs.package_name }}.unitypackage
+            output/${{ steps.package_info.outputs.package_name }}.zip
+            output/package.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List created files
+        run: ls -la output/

@@ -1,0 +1,35 @@
+name: Dispatch Add VPM Repository
+
+# リリース公開後にVPMリスティング側へ登録処理を依頼する。
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Tag name for the package
+        required: true
+        type: string
+
+jobs:
+  send-vpm-repository:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME="${{ inputs.tag_name }}"
+          else
+            TAG_NAME="${{ github.event.release.tag_name }}"
+          fi
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Repository dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.VPM_REPO_TOKEN }}
+          repository: kurotori4423/vpm.kurotori4423
+          event-type: add_new_version
+          client-payload: '{"repository":"${{ github.event.repository.name }}","tag":"${{ steps.vars.outputs.tag_name }}","owner":"${{ github.event.repository.owner.login }}"}'
