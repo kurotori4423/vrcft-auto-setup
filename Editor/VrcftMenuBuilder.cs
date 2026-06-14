@@ -13,9 +13,9 @@ namespace Kurotori.VrcftAutoSetup.Editor
         private const string SmoothingParam = "OSCm/Local/FloatSmoothing";
 
         /// <summary>
-        /// メニューを生成し、MenuInstaller に渡すルートメニュー (FT_Root) を返す。
+        /// 実効設定に合わせたメニューを生成し、MenuInstaller に渡すルートメニュー (FT_Root) を返す。
         /// </summary>
-        public static VRCExpressionsMenu BuildMenu(VrcftGenerationResult result, string outputDir)
+        public static VRCExpressionsMenu BuildMenu(VrcftGenerationResult result, string outputDir, bool includeSmoothing)
         {
             string menuDir = outputDir.Replace('\\', '/').TrimEnd('/') + "/Menu";
             VrcftAssetUtility.EnsureFolder(menuDir);
@@ -37,15 +37,19 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 parameter = new VRCExpressionsMenu.Control.Parameter { name = "LipTrackingActive" },
                 value = 1f,
             });
-            ftMenu.controls.Add(new VRCExpressionsMenu.Control
+            if (includeSmoothing)
             {
-                name = "Smoothing",
-                type = VRCExpressionsMenu.Control.ControlType.RadialPuppet,
-                subParameters = new[]
+                // スムージング無効時は対応する MA Parameter も生成されないため、メニュー参照も作らない。
+                ftMenu.controls.Add(new VRCExpressionsMenu.Control
                 {
-                    new VRCExpressionsMenu.Control.Parameter { name = SmoothingParam },
-                },
-            });
+                    name = "Smoothing",
+                    type = VRCExpressionsMenu.Control.ControlType.RadialPuppet,
+                    subParameters = new[]
+                    {
+                        new VRCExpressionsMenu.Control.Parameter { name = SmoothingParam },
+                    },
+                });
+            }
             AssetDatabase.CreateAsset(ftMenu, menuDir + "/FT_Menu.asset");
 
             // ---------- FT_Root (MenuInstaller で追加するルート) ----------

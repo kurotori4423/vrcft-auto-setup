@@ -76,7 +76,10 @@ namespace Kurotori.VrcftAutoSetup.Editor
             // 5. メニュー
             if (settings.addMenu)
             {
-                VRCExpressionsMenu rootMenu = VrcftMenuBuilder.BuildMenu(result, result.outputDir);
+                VRCExpressionsMenu rootMenu = VrcftMenuBuilder.BuildMenu(
+                    result,
+                    result.outputDir,
+                    VrcftAnimatorGenerator.UseSmoothing(settings));
                 var installer = obj.AddComponent<ModularAvatarMenuInstaller>();
                 installer.menuToAppend = rootMenu;
                 EditorUtility.SetDirty(installer);

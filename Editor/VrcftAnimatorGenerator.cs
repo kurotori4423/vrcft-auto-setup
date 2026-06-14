@@ -189,7 +189,10 @@ namespace Kurotori.VrcftAutoSetup.Editor
 
             result.syncedParameters.Add(new VrcftSyncedParameter("EyeTrackingActive", VrcftParameterKind.Bool, 0f, saved: true));
             result.syncedParameters.Add(new VrcftSyncedParameter("LipTrackingActive", VrcftParameterKind.Bool, 0f, saved: true));
-            result.syncedParameters.Add(new VrcftSyncedParameter(LocalSmoothing, VrcftParameterKind.Float, settings.localSmoothness, saved: true, localOnly: true));
+            if (UseSmoothing(settings))
+            {
+                result.syncedParameters.Add(new VrcftSyncedParameter(LocalSmoothing, VrcftParameterKind.Float, settings.localSmoothness, saved: true, localOnly: true));
+            }
 
             AddDebugParameters(settings, targets, result);
         }
@@ -230,10 +233,13 @@ namespace Kurotori.VrcftAutoSetup.Editor
         /// </summary>
         private static void DeclareControllerParameters(AnimatorController controller, VrcftAutoSetupSettings settings, List<Target> targets)
         {
-            // 共通定数 / スムージング設定
+            // 共通定数は Direct BlendTree の weight に使うため、スムージング無効時も必要。
             VrcftAssetUtility.CheckAndCreateParameter(controller, BlendSet, AnimatorControllerParameterType.Float, defaultFloat: 1f);
-            VrcftAssetUtility.CheckAndCreateParameter(controller, LocalSmoothing, AnimatorControllerParameterType.Float, defaultFloat: settings.localSmoothness);
-            VrcftAssetUtility.CheckAndCreateParameter(controller, RemoteSmoothing, AnimatorControllerParameterType.Float, defaultFloat: settings.remoteSmoothness);
+            if (UseSmoothing(settings))
+            {
+                VrcftAssetUtility.CheckAndCreateParameter(controller, LocalSmoothing, AnimatorControllerParameterType.Float, defaultFloat: settings.localSmoothness);
+                VrcftAssetUtility.CheckAndCreateParameter(controller, RemoteSmoothing, AnimatorControllerParameterType.Float, defaultFloat: settings.remoteSmoothness);
+            }
 
             // 制御 Bool
             VrcftAssetUtility.CheckAndCreateParameter(controller, "IsLocal", AnimatorControllerParameterType.Bool);
