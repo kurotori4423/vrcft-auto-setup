@@ -114,29 +114,126 @@ namespace Kurotori.VrcftAutoSetup.Editor
         public EyeLookInfo EyeLook = new EyeLookInfo();
 
         /// <summary>指定プリセット内でマッチしたエントリ数。</summary>
-        public int MatchedCount(VrcftPreset preset)
+        public int MatchedCount(VrcftAutoSetupSettings settings)
         {
-            return Matches.Count(m => (int)m.Entry.Preset <= (int)preset && m.HasAnyMatch);
+            return Matches.Count(m => IsSelectable(m, settings) && m.HasAnyMatch);
         }
 
         /// <summary>指定プリセット内の全エントリ数。</summary>
-        public int TotalCount(VrcftPreset preset)
+        public int TotalCount(VrcftAutoSetupSettings settings)
         {
-            return Matches.Count(m => (int)m.Entry.Preset <= (int)preset);
+            return Matches.Count(m => IsSelectable(m, settings));
+        }
+
+        /// <summary>
+        /// プリセットと通常/簡略プロファイルを加味して、このパラメーターを候補に含めるか判定する。
+        /// </summary>
+        public bool IsSelectable(ParameterMatch match, VrcftAutoSetupSettings settings)
+        {
+            if (match == null || settings == null) return false;
+            if ((int)match.Entry.Preset > (int)settings.preset) return false;
+            if (match.Entry.ConflictGroups.Count == 0) return true;
+
+            bool hasDetailed = HasMatchedAlternative(match, VrcftParameterFamily.Detailed, settings);
+            bool hasSimplified = HasMatchedAlternative(match, VrcftParameterFamily.Simplified, settings);
+            bool hasCompleteDetailed = HasCompleteDetailedAlternative(match, settings);
+
+            switch (settings.parameterProfile)
+            {
+                case VrcftParameterProfile.Simplified:
+                    return match.Entry.Family == VrcftParameterFamily.Simplified || !hasSimplified;
+                case VrcftParameterProfile.Detailed:
+                    return match.Entry.Family == VrcftParameterFamily.Detailed || !hasDetailed;
+                case VrcftParameterProfile.Hybrid:
+                    if (match.Entry.Family == VrcftParameterFamily.Simplified)
+                    {
+                        return !hasCompleteDetailed;
+                    }
+                    return !hasSimplified || hasCompleteDetailed;
+                default:
+                    return true;
+            }
+        }
+
+        /// <summary>
+        /// 同じ競合グループに、指定分類の検知済みパラメーターが存在するか調べる。
+        /// </summary>
+        private bool HasMatchedAlternative(ParameterMatch match, VrcftParameterFamily family, VrcftAutoSetupSettings settings)
+        {
+            return Matches.Any(other =>
+                other != match &&
+                other.Entry.Family == family &&
+                other.HasAnyMatch &&
+                (int)other.Entry.Preset <= (int)settings.preset &&
+                other.Entry.ConflictGroups.Any(g => match.Entry.ConflictGroups.Contains(g)));
+        }
+
+        /// <summary>
+        /// Hybrid用に、同じ競合グループの詳細系が簡略系の担当範囲をすべて満たすか判定する。
+        /// </summary>
+        private bool HasCompleteDetailedAlternative(ParameterMatch match, VrcftAutoSetupSettings settings)
+        {
+            var requiredKeys = RequiredConflictKeys(match, settings);
+            if (requiredKeys.Count == 0)
+            {
+                return HasMatchedAlternative(match, VrcftParameterFamily.Detailed, settings);
+            }
+
+            var coveredKeys = Matches
+                .Where(other =>
+                    other.Entry.Family == VrcftParameterFamily.Detailed &&
+                    other.HasAnyMatch &&
+                    (int)other.Entry.Preset <= (int)settings.preset &&
+                    other.Entry.ConflictGroups.Any(g => match.Entry.ConflictGroups.Contains(g)))
+                .SelectMany(other => other.Entry.ConflictKeys)
+                .ToHashSet();
+
+            return requiredKeys.All(coveredKeys.Contains);
+        }
+
+        /// <summary>
+        /// 簡略系エントリが要求する左右などの担当範囲を取得する。
+        /// </summary>
+        private HashSet<string> RequiredConflictKeys(ParameterMatch match, VrcftAutoSetupSettings settings)
+        {
+            var keys = new HashSet<string>();
+
+            foreach (var simplified in Matches)
+            {
+                if (simplified.Entry.Family != VrcftParameterFamily.Simplified) continue;
+                if ((int)simplified.Entry.Preset > (int)settings.preset) continue;
+                if (!simplified.Entry.ConflictGroups.Any(g => match.Entry.ConflictGroups.Contains(g))) continue;
+
+                foreach (var key in simplified.Entry.ConflictKeys)
+                {
+                    keys.Add(key);
+                }
+            }
+
+            if (keys.Count == 0)
+            {
+                foreach (var key in match.Entry.ConflictKeys)
+                {
+                    keys.Add(key);
+                }
+            }
+
+            return keys;
         }
 
         /// <summary>
         /// 検知結果の要約文字列を生成する (検知数 / 未検知一覧)。
         /// </summary>
-        public string BuildSummary(VrcftPreset preset)
+        public string BuildSummary(VrcftAutoSetupSettings settings)
         {
             var sb = new StringBuilder();
             sb.AppendLine($"アバター: {AvatarName}");
             sb.AppendLine($"フェイスメッシュ: {(FaceMesh != null ? FaceMesh.name : "(なし)")}");
             sb.AppendLine($"走査メッシュ数: {ScannedMeshes.Count}");
-            sb.AppendLine($"プリセット: {preset}");
+            sb.AppendLine($"プリセット: {settings.preset}");
+            sb.AppendLine($"パラメーターモード: {settings.parameterProfile}");
 
-            var inPreset = Matches.Where(m => (int)m.Entry.Preset <= (int)preset).ToList();
+            var inPreset = Matches.Where(m => IsSelectable(m, settings)).ToList();
             int matched = inPreset.Count(m => m.HasAnyMatch);
             sb.AppendLine($"検知: {matched} / {inPreset.Count} パラメーター");
 

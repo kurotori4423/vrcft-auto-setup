@@ -27,6 +27,19 @@ namespace Kurotori.VrcftAutoSetup.Editor
     }
 
     /// <summary>
+    /// 通常系とSimplified Tracking系が同じ表情を駆動できる場合の選択方針。
+    /// </summary>
+    public enum VrcftParameterProfile
+    {
+        /// <summary>検知できた通常系を優先し、足りない箇所だけ簡略系で補う。</summary>
+        Hybrid = 0,
+        /// <summary>簡略系を優先し、対応する簡略系がない箇所だけ通常系を使う。</summary>
+        Simplified = 1,
+        /// <summary>通常系を優先し、対応する通常系がない箇所だけ簡略系を使う。</summary>
+        Detailed = 2,
+    }
+
+    /// <summary>
     /// 生成オプション。
     /// </summary>
     [Serializable]
@@ -34,6 +47,9 @@ namespace Kurotori.VrcftAutoSetup.Editor
     {
         /// <summary>使用するパラメーターセット。</summary>
         public VrcftPreset preset = VrcftPreset.Standard;
+
+        /// <summary>通常系 / Simplified Tracking 系の選択方針。</summary>
+        public VrcftParameterProfile parameterProfile = VrcftParameterProfile.Hybrid;
 
         /// <summary>Binary同期 (ビット削減) を使うか。</summary>
         public bool useBinary = true;

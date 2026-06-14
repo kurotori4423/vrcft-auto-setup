@@ -130,7 +130,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             foreach (var m in report.Matches)
             {
                 if (!m.Enabled || !m.HasAnyMatch) continue;
-                if ((int)m.Entry.Preset > (int)settings.preset) continue;
+                if (!report.IsSelectable(m, settings)) continue;
 
                 var t = new Target
                 {
@@ -154,6 +154,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
                     if (byName.ContainsKey(pname)) continue;
                     var m = report.Matches.FirstOrDefault(x => x.Entry.ParameterName == pname);
                     if (m == null) continue;
+                    if (!report.IsSelectable(m, settings)) continue;
                     var t = new Target
                     {
                         Match = m,

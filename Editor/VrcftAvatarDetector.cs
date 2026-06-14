@@ -209,7 +209,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
         private static int MatchQuality(string shapeKey, string aliasKey)
         {
             if (shapeKey == aliasKey) return 0;
-            return shapeKey.Contains(aliasKey) ? 1 : -1;
+            return shapeKey.EndsWith(aliasKey) ? 1 : -1;
         }
 
         /// <summary>
@@ -269,14 +269,27 @@ namespace Kurotori.VrcftAutoSetup.Editor
             info.RightEyeBone = s.rightEye;
             info.EyelidType = s.eyelidType.ToString();
 
-            info.LeftUp = s.eyesLookingUp.left;
-            info.RightUp = s.eyesLookingUp.right;
-            info.LeftDown = s.eyesLookingDown.left;
-            info.RightDown = s.eyesLookingDown.right;
-            info.LeftLeft = s.eyesLookingLeft.left;
-            info.RightLeft = s.eyesLookingLeft.right;
-            info.LeftRight = s.eyesLookingRight.left;
-            info.RightRight = s.eyesLookingRight.right;
+            // Descriptorをコード生成した直後はRotationStateがnullのことがあるため、未設定時はidentityのまま扱う。
+            if (s.eyesLookingUp != null)
+            {
+                info.LeftUp = s.eyesLookingUp.left;
+                info.RightUp = s.eyesLookingUp.right;
+            }
+            if (s.eyesLookingDown != null)
+            {
+                info.LeftDown = s.eyesLookingDown.left;
+                info.RightDown = s.eyesLookingDown.right;
+            }
+            if (s.eyesLookingLeft != null)
+            {
+                info.LeftLeft = s.eyesLookingLeft.left;
+                info.RightLeft = s.eyesLookingLeft.right;
+            }
+            if (s.eyesLookingRight != null)
+            {
+                info.LeftRight = s.eyesLookingRight.left;
+                info.RightRight = s.eyesLookingRight.right;
+            }
         }
 
         /// <summary>

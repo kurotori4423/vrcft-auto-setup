@@ -15,6 +15,15 @@ namespace Kurotori.VrcftAutoSetup.Editor
     }
 
     /// <summary>
+    /// VRCFTパラメーターが通常系か、複数の通常系をまとめた簡略系かを示す。
+    /// </summary>
+    public enum VrcftParameterFamily
+    {
+        Detailed = 0,
+        Simplified = 1,
+    }
+
+    /// <summary>
     /// 1つの「駆動スロット」。複数のブレンドシェイプを同時駆動できるFTパラメーターでは
     /// スロットが複数になる (例: MouthUpperUp は Left / Right の2スロット)。
     /// 各スロットは命名規格違いのエイリアス候補リストを持つ。
@@ -57,6 +66,15 @@ namespace Kurotori.VrcftAutoSetup.Editor
         /// <summary>どのプリセットから含まれるか。</summary>
         public VrcftPreset Preset { get; }
 
+        /// <summary>通常系 / 簡略系の分類。</summary>
+        public VrcftParameterFamily Family { get; }
+
+        /// <summary>同じアバター上の意味を駆動する候補同士を排他選択するためのキー。</summary>
+        public IReadOnlyList<string> ConflictGroups { get; }
+
+        /// <summary>Hybrid時に詳細系が揃っているか判定するための、競合グループ内の担当範囲。</summary>
+        public IReadOnlyList<string> ConflictKeys { get; }
+
         /// <summary>0..1 の基準デフォルト値 (EyeLid 等は 0.75)。</summary>
         public float DefaultValue { get; }
 
@@ -79,7 +97,10 @@ namespace Kurotori.VrcftAutoSetup.Editor
             float defaultValue = 0f,
             bool isEyeLid = false,
             ShapeSlot eyeLidBlink = null,
-            ShapeSlot eyeLidWide = null)
+            ShapeSlot eyeLidWide = null,
+            VrcftParameterFamily family = VrcftParameterFamily.Detailed,
+            string[] conflictKeys = null,
+            params string[] conflictGroups)
         {
             ParameterName = parameterName;
             TwoSided = twoSided;
@@ -91,6 +112,9 @@ namespace Kurotori.VrcftAutoSetup.Editor
             IsEyeLid = isEyeLid;
             EyeLidBlink = eyeLidBlink;
             EyeLidWide = eyeLidWide;
+            Family = family;
+            ConflictKeys = conflictKeys ?? Array.Empty<string>();
+            ConflictGroups = conflictGroups ?? Array.Empty<string>();
         }
 
         /// <summary>このエントリが対象とする全スロット (正側+負側+EyeLid専用) を列挙。</summary>
@@ -158,7 +182,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             list.Add(new VrcftCatalogEntry("EyeY", true,
                 Slots(S("eyeLookUpLeft", "eyeLookUpRight", "EyeUp", "Eye_Up", "EYES_LOOK_UP_L", "EYES_LOOK_UP_R")),
                 Slots(S("eyeLookDownLeft", "eyeLookDownRight", "EyeDown", "Eye_Down", "EYES_LOOK_DOWN_L", "EYES_LOOK_DOWN_R")),
-                4, VrcftPreset.Minimal));
+                4, VrcftPreset.Minimal, family: VrcftParameterFamily.Simplified, conflictGroups: new[] { "EyeY" }));
 
             // EyeLid (専用構造): 0..1, default 0.75。0-0.75=閉眼(blink逆向き), 0.75-1=見開き(wide)。
             list.Add(new VrcftCatalogEntry("EyeLidLeft", false, None, None, 4, VrcftPreset.Minimal,
@@ -184,25 +208,33 @@ namespace Kurotori.VrcftAutoSetup.Editor
             list.Add(new VrcftCatalogEntry("BrowExpressionLeft", true,
                 Slots(S("browOuterUpLeft", "browInnerUp", "BrowUpLeft", "Brow_Left_Up", "OUTER_BROW_RAISER_L")),
                 Slots(S("browDownLeft", "BrowDownLeft", "Brow_Left_Down", "BROW_LOWERER_L")),
-                3, VrcftPreset.Standard));
+                3, VrcftPreset.Standard, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Up", "Down" }, conflictGroups: new[] { "BrowLeft" }));
             list.Add(new VrcftCatalogEntry("BrowExpressionRight", true,
                 Slots(S("browOuterUpRight", "browInnerUp", "BrowUpRight", "Brow_Right_Up", "OUTER_BROW_RAISER_R")),
                 Slots(S("browDownRight", "BrowDownRight", "Brow_Right_Down", "BROW_LOWERER_R")),
-                3, VrcftPreset.Standard));
+                3, VrcftPreset.Standard, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Up", "Down" }, conflictGroups: new[] { "BrowRight" }));
 
             // Full時の個別 (ARKitにはbrowInnerUp/browDownL/R/browOuterUpL/Rのみなのでエイリアス薄め)
             list.Add(new VrcftCatalogEntry("BrowInnerUpLeft", false,
-                Slots(S("browInnerUp", "BrowInnerUpLeft", "INNER_BROW_RAISER_L")), None, 2, VrcftPreset.Full));
+                Slots(S("browInnerUp", "BrowInnerUpLeft", "INNER_BROW_RAISER_L")), None, 2, VrcftPreset.Full,
+                conflictKeys: new[] { "Up" }, conflictGroups: "BrowLeft"));
             list.Add(new VrcftCatalogEntry("BrowInnerUpRight", false,
-                Slots(S("browInnerUp", "BrowInnerUpRight", "INNER_BROW_RAISER_R")), None, 2, VrcftPreset.Full));
+                Slots(S("browInnerUp", "BrowInnerUpRight", "INNER_BROW_RAISER_R")), None, 2, VrcftPreset.Full,
+                conflictKeys: new[] { "Up" }, conflictGroups: "BrowRight"));
             list.Add(new VrcftCatalogEntry("BrowOuterUpLeft", false,
-                Slots(S("browOuterUpLeft", "BrowOuterUpLeft", "OUTER_BROW_RAISER_L")), None, 2, VrcftPreset.Full));
+                Slots(S("browOuterUpLeft", "BrowOuterUpLeft", "OUTER_BROW_RAISER_L")), None, 2, VrcftPreset.Full,
+                conflictKeys: new[] { "Up" }, conflictGroups: "BrowLeft"));
             list.Add(new VrcftCatalogEntry("BrowOuterUpRight", false,
-                Slots(S("browOuterUpRight", "BrowOuterUpRight", "OUTER_BROW_RAISER_R")), None, 2, VrcftPreset.Full));
+                Slots(S("browOuterUpRight", "BrowOuterUpRight", "OUTER_BROW_RAISER_R")), None, 2, VrcftPreset.Full,
+                conflictKeys: new[] { "Up" }, conflictGroups: "BrowRight"));
             list.Add(new VrcftCatalogEntry("BrowLowererLeft", false,
-                Slots(S("browDownLeft", "BrowLowererLeft", "BROW_LOWERER_L")), None, 2, VrcftPreset.Full));
+                Slots(S("browDownLeft", "BrowLowererLeft", "BROW_LOWERER_L")), None, 2, VrcftPreset.Full,
+                conflictKeys: new[] { "Down" }, conflictGroups: "BrowLeft"));
             list.Add(new VrcftCatalogEntry("BrowLowererRight", false,
-                Slots(S("browDownRight", "BrowLowererRight", "BROW_LOWERER_R")), None, 2, VrcftPreset.Full));
+                Slots(S("browDownRight", "BrowLowererRight", "BROW_LOWERER_R")), None, 2, VrcftPreset.Full,
+                conflictKeys: new[] { "Down" }, conflictGroups: "BrowRight"));
             list.Add(new VrcftCatalogEntry("BrowPinchLeft", false,
                 Slots(S("BrowPinchLeft")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("BrowPinchRight", false,
@@ -217,7 +249,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 Slots(S("jawRight", "JawRight", "Jaw_Right", "JAW_SIDEWAYS_RIGHT")),
                 Slots(S("jawLeft", "JawLeft", "Jaw_Left", "JAW_SIDEWAYS_LEFT")),
                 3, VrcftPreset.Standard));
-            list.Add(new VrcftCatalogEntry("JawForward", false,
+            list.Add(new VrcftCatalogEntry("JawZ", false,
                 Slots(S("jawForward", "JawForward", "Jaw_Forward", "JAW_THRUST")), None,
                 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("MouthClosed", false,
@@ -227,54 +259,122 @@ namespace Kurotori.VrcftAutoSetup.Editor
             list.Add(new VrcftCatalogEntry("MouthX", true,
                 Slots(S("mouthRight", "MouthRight", "Mouth_Right")),
                 Slots(S("mouthLeft", "MouthLeft", "Mouth_Left")),
-                3, VrcftPreset.Standard));
+                3, VrcftPreset.Standard, family: VrcftParameterFamily.Simplified, conflictGroups: new[] { "MouthX" }));
             // SmileFrown : 正=smile, 負=frown
             list.Add(new VrcftCatalogEntry("SmileFrownLeft", true,
                 Slots(S("mouthSmileLeft", "MouthSmileLeft", "Mouth_Smile_Left", "LIP_CORNER_PULLER_L")),
                 Slots(S("mouthFrownLeft", "MouthFrownLeft", "Mouth_Frown_Left", "LIP_CORNER_DEPRESSOR_L")),
-                4, VrcftPreset.Minimal));
+                4, VrcftPreset.Minimal, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Smile", "Frown" }, conflictGroups: new[] { "MouthCornerLeft" }));
             list.Add(new VrcftCatalogEntry("SmileFrownRight", true,
                 Slots(S("mouthSmileRight", "MouthSmileRight", "Mouth_Smile_Right", "LIP_CORNER_PULLER_R")),
                 Slots(S("mouthFrownRight", "MouthFrownRight", "Mouth_Frown_Right", "LIP_CORNER_DEPRESSOR_R")),
-                4, VrcftPreset.Minimal));
+                4, VrcftPreset.Minimal, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Smile", "Frown" }, conflictGroups: new[] { "MouthCornerRight" }));
+            list.Add(new VrcftCatalogEntry("MouthCornerPullLeft", false,
+                Slots(S("mouthSmileLeft", "MouthSmileLeft", "Mouth_Smile_Left", "LIP_CORNER_PULLER_L")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Smile" }, conflictGroups: "MouthCornerLeft"));
+            list.Add(new VrcftCatalogEntry("MouthCornerPullRight", false,
+                Slots(S("mouthSmileRight", "MouthSmileRight", "Mouth_Smile_Right", "LIP_CORNER_PULLER_R")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Smile" }, conflictGroups: "MouthCornerRight"));
+            list.Add(new VrcftCatalogEntry("MouthFrownLeft", false,
+                Slots(S("mouthFrownLeft", "MouthFrownLeft", "Mouth_Frown_Left", "LIP_CORNER_DEPRESSOR_L")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Frown" }, conflictGroups: "MouthCornerLeft"));
+            list.Add(new VrcftCatalogEntry("MouthFrownRight", false,
+                Slots(S("mouthFrownRight", "MouthFrownRight", "Mouth_Frown_Right", "LIP_CORNER_DEPRESSOR_R")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Frown" }, conflictGroups: "MouthCornerRight"));
             // MouthUpperUp : 左右2スロット
             list.Add(new VrcftCatalogEntry("MouthUpperUp", false,
                 Slots(S("mouthUpperUpLeft", "MouthUpperUpLeft", "Mouth_Upper_Up_Left", "UPPER_LIP_RAISER_L"), S("mouthUpperUpRight", "MouthUpperUpRight", "Mouth_Upper_Up_Right", "UPPER_LIP_RAISER_R")), None,
-                3, VrcftPreset.Standard));
+                3, VrcftPreset.Standard, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Left", "Right" }, conflictGroups: new[] { "MouthUpperUp" }));
+            list.Add(new VrcftCatalogEntry("MouthUpperUpLeft", false,
+                Slots(S("mouthUpperUpLeft", "MouthUpperUpLeft", "Mouth_Upper_Up_Left", "UPPER_LIP_RAISER_L")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Left" }, conflictGroups: "MouthUpperUp"));
+            list.Add(new VrcftCatalogEntry("MouthUpperUpRight", false,
+                Slots(S("mouthUpperUpRight", "MouthUpperUpRight", "Mouth_Upper_Up_Right", "UPPER_LIP_RAISER_R")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Right" }, conflictGroups: "MouthUpperUp"));
             // MouthLowerDown : 左右2スロット
             list.Add(new VrcftCatalogEntry("MouthLowerDown", false,
                 Slots(S("mouthLowerDownLeft", "MouthLowerDownLeft", "Mouth_Lower_Down_Left", "LOWER_LIP_DEPRESSER_L"), S("mouthLowerDownRight", "MouthLowerDownRight", "Mouth_Lower_Down_Right", "LOWER_LIP_DEPRESSOR_R")), None,
-                3, VrcftPreset.Standard));
+                3, VrcftPreset.Standard, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Left", "Right" }, conflictGroups: new[] { "MouthLowerDown" }));
+            list.Add(new VrcftCatalogEntry("MouthLowerDownLeft", false,
+                Slots(S("mouthLowerDownLeft", "MouthLowerDownLeft", "Mouth_Lower_Down_Left", "LOWER_LIP_DEPRESSER_L")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Left" }, conflictGroups: "MouthLowerDown"));
+            list.Add(new VrcftCatalogEntry("MouthLowerDownRight", false,
+                Slots(S("mouthLowerDownRight", "MouthLowerDownRight", "Mouth_Lower_Down_Right", "LOWER_LIP_DEPRESSOR_R")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Right" }, conflictGroups: "MouthLowerDown"));
             list.Add(new VrcftCatalogEntry("LipPucker", false,
-                Slots(S("mouthPucker", "LipPucker", "Mouth_Pout")), None,
-                3, VrcftPreset.Standard));
+                Slots(S("mouthPucker", "LipPucker", "LipPuckerUpper", "Mouth_Pout"), S("LipPuckerLower")), None,
+                3, VrcftPreset.Standard, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Upper", "Lower" }, conflictGroups: new[] { "LipPucker" }));
+            list.Add(new VrcftCatalogEntry("LipPuckerUpper", false,
+                Slots(S("LipPuckerUpper", "Mouth_Pout")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Upper" }, conflictGroups: "LipPucker"));
+            list.Add(new VrcftCatalogEntry("LipPuckerLower", false,
+                Slots(S("LipPuckerLower", "Mouth_Pout")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Lower" }, conflictGroups: "LipPucker"));
             list.Add(new VrcftCatalogEntry("LipFunnel", false,
-                Slots(S("mouthFunnel", "LipFunnel")), None,
-                3, VrcftPreset.Standard));
+                Slots(S("mouthFunnel", "LipFunnel", "LipFunnelUpper"), S("LipFunnelLower")), None,
+                3, VrcftPreset.Standard, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Upper", "Lower" }, conflictGroups: new[] { "LipFunnel" }));
+            list.Add(new VrcftCatalogEntry("LipFunnelUpper", false,
+                Slots(S("LipFunnelUpper")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Upper" }, conflictGroups: "LipFunnel"));
+            list.Add(new VrcftCatalogEntry("LipFunnelLower", false,
+                Slots(S("LipFunnelLower")), None,
+                3, VrcftPreset.Full, conflictKeys: new[] { "Lower" }, conflictGroups: "LipFunnel"));
             // MouthStretch (Full)
             list.Add(new VrcftCatalogEntry("MouthStretchLeft", false,
-                Slots(S("mouthStretchLeft", "MouthStretchLeft", "LIP_STRETCHER_L")), None, 2, VrcftPreset.Full));
+                Slots(S("mouthStretchLeft", "MouthStretchLeft", "LIP_STRETCHER_L")), None, 2, VrcftPreset.Full,
+                conflictGroups: "MouthCornerLeft"));
             list.Add(new VrcftCatalogEntry("MouthStretchRight", false,
-                Slots(S("mouthStretchRight", "MouthStretchRight", "LIP_STRETCHER_R")), None, 2, VrcftPreset.Full));
+                Slots(S("mouthStretchRight", "MouthStretchRight", "LIP_STRETCHER_R")), None, 2, VrcftPreset.Full,
+                conflictGroups: "MouthCornerRight"));
             // MouthPress : 左右2スロット (Full)
             list.Add(new VrcftCatalogEntry("MouthPress", false,
                 Slots(S("mouthPressLeft", "MouthPressLeft", "LIP_PRESSOR_L"), S("mouthPressRight", "MouthPressRight", "LIP_PRESSOR_R")), None,
-                2, VrcftPreset.Full));
+                2, VrcftPreset.Full, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Left", "Right" }, conflictGroups: new[] { "MouthPress" }));
+            list.Add(new VrcftCatalogEntry("MouthPressLeft", false,
+                Slots(S("mouthPressLeft", "MouthPressLeft", "LIP_PRESSOR_L")), None,
+                2, VrcftPreset.Full, conflictKeys: new[] { "Left" }, conflictGroups: "MouthPress"));
+            list.Add(new VrcftCatalogEntry("MouthPressRight", false,
+                Slots(S("mouthPressRight", "MouthPressRight", "LIP_PRESSOR_R")), None,
+                2, VrcftPreset.Full, conflictKeys: new[] { "Right" }, conflictGroups: "MouthPress"));
             // MouthDimple : 左右2スロット (Full)
             list.Add(new VrcftCatalogEntry("MouthDimple", false,
                 Slots(S("mouthDimpleLeft", "MouthDimpleLeft", "DIMPLER_L"), S("mouthDimpleRight", "MouthDimpleRight", "DIMPLER_R")), None,
-                2, VrcftPreset.Full));
+                2, VrcftPreset.Full, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Left", "Right" }, conflictGroups: new[] { "MouthDimple" }));
+            list.Add(new VrcftCatalogEntry("MouthDimpleLeft", false,
+                Slots(S("mouthDimpleLeft", "MouthDimpleLeft", "DIMPLER_L")), None,
+                2, VrcftPreset.Full, conflictKeys: new[] { "Left" }, conflictGroups: "MouthDimple"));
+            list.Add(new VrcftCatalogEntry("MouthDimpleRight", false,
+                Slots(S("mouthDimpleRight", "MouthDimpleRight", "DIMPLER_R")), None,
+                2, VrcftPreset.Full, conflictKeys: new[] { "Right" }, conflictGroups: "MouthDimple"));
             list.Add(new VrcftCatalogEntry("MouthRaiserUpper", false,
                 Slots(S("mouthShrugUpper", "MouthRaiserUpper", "CHIN_RAISER_T")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("MouthRaiserLower", false,
                 Slots(S("mouthShrugLower", "MouthRaiserLower", "Mouth_Lower_Overlay", "CHIN_RAISER_B")), None, 2, VrcftPreset.Full));
 
             // =========================== Cheek/Nose系 ===========================
-            // CheekPuffSuck : 一体型。正=puff (ARKitはcheekPuff一体), 負=suck (無ければ空)
+            // CheekPuffSuck : 簡略入力1本で左右のpuff/suckを同時駆動する。
+            // 左右別シェイプしかないアバターでも使えるよう、正負それぞれを左右2スロットに分ける。
             list.Add(new VrcftCatalogEntry("CheekPuffSuck", true,
-                Slots(S("cheekPuff", "CheekPuffLeft", "CheekPuffRight", "Cheek_Puff", "CHEEK_PUFF_L", "CHEEK_PUFF_R")),
-                Slots(S("cheekSuck", "CheekSuckLeft", "CheekSuckRight", "Cheek_Suck", "CHEEK_SUCK_L", "CHEEK_SUCK_R")),
-                3, VrcftPreset.Standard));
+                Slots(S("cheekPuff", "CheekPuffLeft", "Cheek_Puff", "CHEEK_PUFF_L"), S("CheekPuffRight", "CHEEK_PUFF_R")),
+                Slots(S("cheekSuck", "CheekSuckLeft", "Cheek_Suck", "CHEEK_SUCK_L"), S("CheekSuckRight", "CHEEK_SUCK_R")),
+                3, VrcftPreset.Standard, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Left", "Right" }, conflictGroups: new[] { "CheekPuffSuck" }));
+            list.Add(new VrcftCatalogEntry("CheekPuffSuckLeft", true,
+                Slots(S("CheekPuffLeft", "Cheek_Puff_Left", "CHEEK_PUFF_L")),
+                Slots(S("CheekSuckLeft", "Cheek_SuckLeft", "Cheek_Suck_Left", "CHEEK_SUCK_L")),
+                3, VrcftPreset.Full, conflictKeys: new[] { "Left" }, conflictGroups: "CheekPuffSuck"));
+            list.Add(new VrcftCatalogEntry("CheekPuffSuckRight", true,
+                Slots(S("CheekPuffRight", "Cheek_Puff_Right", "CHEEK_PUFF_R")),
+                Slots(S("CheekSuckRight", "Cheek_SuckRight", "Cheek_Suck_Right", "CHEEK_SUCK_R")),
+                3, VrcftPreset.Full, conflictKeys: new[] { "Right" }, conflictGroups: "CheekPuffSuck"));
             list.Add(new VrcftCatalogEntry("CheekSquintLeft", false,
                 Slots(S("cheekSquintLeft", "CheekSquintLeft", "CHEEK_RAISER_L")), None, 2, VrcftPreset.Full));
             list.Add(new VrcftCatalogEntry("CheekSquintRight", false,
@@ -282,7 +382,14 @@ namespace Kurotori.VrcftAutoSetup.Editor
             // NoseSneer : 左右2スロット (Full)
             list.Add(new VrcftCatalogEntry("NoseSneer", false,
                 Slots(S("noseSneerLeft", "NoseSneerLeft", "NOSE_WRINKLER_L"), S("noseSneerRight", "NoseSneerRight", "NOSE_WRINKLER_R")), None,
-                2, VrcftPreset.Full));
+                2, VrcftPreset.Full, family: VrcftParameterFamily.Simplified,
+                conflictKeys: new[] { "Left", "Right" }, conflictGroups: new[] { "NoseSneer" }));
+            list.Add(new VrcftCatalogEntry("NoseSneerLeft", false,
+                Slots(S("noseSneerLeft", "NoseSneerLeft", "NOSE_WRINKLER_L")), None,
+                2, VrcftPreset.Full, conflictKeys: new[] { "Left" }, conflictGroups: "NoseSneer"));
+            list.Add(new VrcftCatalogEntry("NoseSneerRight", false,
+                Slots(S("noseSneerRight", "NoseSneerRight", "NOSE_WRINKLER_R")), None,
+                2, VrcftPreset.Full, conflictKeys: new[] { "Right" }, conflictGroups: "NoseSneer"));
 
             // =========================== Tongue系 ===========================
             list.Add(new VrcftCatalogEntry("TongueOut", false,

@@ -77,9 +77,10 @@ namespace Kurotori.VrcftAutoSetup.Editor
         {
             EditorGUI.BeginChangeCheck();
             _settings.preset = (VrcftPreset)EditorGUILayout.EnumPopup("プリセット", _settings.preset);
+            _settings.parameterProfile = (VrcftParameterProfile)EditorGUILayout.EnumPopup("パラメーターモード", _settings.parameterProfile);
             if (EditorGUI.EndChangeCheck())
             {
-                // プリセット変更時、対象外エントリの有効化フラグを調整
+                // プリセット/モード変更時、競合する通常系・簡略系が同時駆動しないよう有効化フラグを調整。
                 if (_report != null) ApplyPresetFilter();
             }
 
@@ -151,16 +152,16 @@ namespace Kurotori.VrcftAutoSetup.Editor
         {
             foreach (var m in _report.Matches)
             {
-                bool inPreset = (int)m.Entry.Preset <= (int)_settings.preset;
-                if (!inPreset) m.Enabled = false;
+                bool selectable = _report.IsSelectable(m, _settings);
+                if (!selectable) m.Enabled = false;
                 else if (m.HasAnyMatch) m.Enabled = true;
             }
         }
 
         private void DrawSummary()
         {
-            int matched = _report.MatchedCount(_settings.preset);
-            int total = _report.TotalCount(_settings.preset);
+            int matched = _report.MatchedCount(_settings);
+            int total = _report.TotalCount(_settings);
             EditorGUILayout.LabelField($"検知結果: {matched} / {total} パラメーター", EditorStyles.boldLabel);
 
             EditorGUILayout.LabelField($"同期ビット数 (推定): {ComputeSyncBits()} bits");
@@ -174,7 +175,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
         private int ComputeSyncBits()
         {
             var active = _report.Matches
-                .Where(m => (int)m.Entry.Preset <= (int)_settings.preset && m.Enabled && m.HasAnyMatch)
+                .Where(m => _report.IsSelectable(m, _settings) && m.Enabled && m.HasAnyMatch)
                 .ToList();
 
             if (!_settings.useBinary)
@@ -215,7 +216,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
 
             foreach (var m in _report.Matches)
             {
-                if ((int)m.Entry.Preset > (int)_settings.preset) continue;
+                if (!_report.IsSelectable(m, _settings)) continue;
 
                 bool matched = m.HasAnyMatch;
                 bool canEnable = matched || m.HasManualOverride;
