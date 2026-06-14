@@ -4,6 +4,13 @@ VRChat Face Tracking (VRCFT) 用のアニメーションセットアップを、
 
 アバター内の表情ブレンドシェイプを検知し、VRCFT v2パラメーターで動作するAnimator Controller、Expression Parameters、Expression Menu、Modular Avatar用の配置オブジェクトをまとめて作成します。
 
+## 特長
+
+- 面倒なVRCFT向けAnimator、同期パラメーター、Expression Menuをワンクリックで生成します。
+- Modular Avatarに対応し、元のアバター構成を直接書き換えない非破壊導入ができます。
+- Binary同期に対応し、必要な同期パラメーターを最小化します。標準プリセットでは制御パラメーター込みで78bitを目安に生成します。
+- ローカルとリモートで別々に調整できるスムージング機能により、表情の揺れや急な変化を抑えます。
+
 ## インストール
 
 VRChat Creator Companionに以下のVPMリポジトリを追加してから、プロジェクトに `VRCFT Auto Setup` を追加してください。
