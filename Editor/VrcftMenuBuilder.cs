@@ -15,7 +15,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
         /// <summary>
         /// 実効設定に合わせたメニューを生成し、MenuInstaller に渡すルートメニュー (FT_Root) を返す。
         /// </summary>
-        public static VRCExpressionsMenu BuildMenu(VrcftGenerationResult result, string outputDir, bool includeSmoothing, bool includeVoiceLipSyncBlend)
+        public static VRCExpressionsMenu BuildMenu(VrcftGenerationResult result, string outputDir, bool includeSmoothing, bool includeVoiceLipSyncBlend, VrcftLanguage language)
         {
             string menuDir = outputDir.Replace('\\', '/').TrimEnd('/') + "/Menu";
             VrcftAssetUtility.EnsureFolder(menuDir);
@@ -25,14 +25,14 @@ namespace Kurotori.VrcftAutoSetup.Editor
             ftMenu.name = "FT_Menu";
             ftMenu.controls.Add(new VRCExpressionsMenu.Control
             {
-                name = "Eye Tracking",
+                name = VrcftLocalization.T(language, "menu.eyeTracking"),
                 type = VRCExpressionsMenu.Control.ControlType.Toggle,
                 parameter = new VRCExpressionsMenu.Control.Parameter { name = "EyeTrackingActive" },
                 value = 1f,
             });
             ftMenu.controls.Add(new VRCExpressionsMenu.Control
             {
-                name = "Lip Tracking",
+                name = VrcftLocalization.T(language, "menu.lipTracking"),
                 type = VRCExpressionsMenu.Control.ControlType.Toggle,
                 parameter = new VRCExpressionsMenu.Control.Parameter { name = "LipTrackingActive" },
                 value = 1f,
@@ -41,7 +41,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             {
                 ftMenu.controls.Add(new VRCExpressionsMenu.Control
                 {
-                    name = "Voice LipSync Blend",
+                    name = VrcftLocalization.T(language, "menu.voiceLipSyncBlend"),
                     type = VRCExpressionsMenu.Control.ControlType.Toggle,
                     parameter = new VRCExpressionsMenu.Control.Parameter { name = "VoiceLipSyncBlend" },
                     value = 1f,
@@ -52,7 +52,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 // スムージング無効時は対応する MA Parameter も生成されないため、メニュー参照も作らない。
                 ftMenu.controls.Add(new VRCExpressionsMenu.Control
                 {
-                    name = "Smoothing",
+                    name = VrcftLocalization.T(language, "menu.smoothing"),
                     type = VRCExpressionsMenu.Control.ControlType.RadialPuppet,
                     subParameters = new[]
                     {
@@ -67,7 +67,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             ftRoot.name = "FT_Root";
             ftRoot.controls.Add(new VRCExpressionsMenu.Control
             {
-                name = "Face Tracking",
+                name = VrcftLocalization.T(language, "menu.faceTracking"),
                 type = VRCExpressionsMenu.Control.ControlType.SubMenu,
                 subMenu = ftMenu,
             });

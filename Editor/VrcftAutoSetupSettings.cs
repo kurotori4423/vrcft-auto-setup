@@ -81,6 +81,9 @@ namespace Kurotori.VrcftAutoSetup.Editor
         /// <summary>Expression メニューを生成するか。</summary>
         public bool addMenu = true;
 
+        /// <summary>生成される Expression Menu の表示言語。</summary>
+        public VrcftLanguage generatedMenuLanguage = VrcftLanguage.Auto;
+
         /// <summary>生成ステートの Write Defaults 方針。</summary>
         public VrcftWriteDefaultsMode writeDefaultsMode = VrcftWriteDefaultsMode.On;
 

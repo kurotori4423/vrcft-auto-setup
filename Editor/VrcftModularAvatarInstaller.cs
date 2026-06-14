@@ -17,17 +17,17 @@ namespace Kurotori.VrcftAutoSetup.Editor
         public static GameObject Install(VRCAvatarDescriptor avatar, VrcftGenerationResult result, VrcftAutoSetupSettings settings)
         {
 #if !USE_MODULAR_AVATAR
-            Debug.LogError("[VRCFT Auto Setup] Modular Avatarが必要です。パッケージをインストールしてください。");
+            Debug.LogError(VrcftLocalization.T("error.modularAvatarRequired"));
             return null;
 #else
             if (avatar == null)
             {
-                Debug.LogError("[VRCFT Auto Setup] アバターが指定されていません。");
+                Debug.LogError(VrcftLocalization.T("error.avatarMissing"));
                 return null;
             }
             if (result == null || result.fxController == null)
             {
-                Debug.LogError("[VRCFT Auto Setup] FX生成結果が無効です。");
+                Debug.LogError(VrcftLocalization.T("error.invalidFxResult"));
                 return null;
             }
 
@@ -74,11 +74,16 @@ namespace Kurotori.VrcftAutoSetup.Editor
             // 5. メニュー
             if (settings.addMenu)
             {
+                // Auto指定時はエディタ上で選んだ表示言語に合わせ、生成物だけ別言語になる混乱を避ける。
+                var menuLanguage = settings.generatedMenuLanguage == VrcftLanguage.Auto
+                    ? VrcftLocalization.EditorLanguage
+                    : settings.generatedMenuLanguage;
                 VRCExpressionsMenu rootMenu = VrcftMenuBuilder.BuildMenu(
                     result,
                     result.outputDir,
                     VrcftAnimatorGenerator.UseSmoothing(settings),
-                    settings.enableVoiceLipSyncBlend);
+                    settings.enableVoiceLipSyncBlend,
+                    menuLanguage);
                 var installer = obj.AddComponent<ModularAvatarMenuInstaller>();
                 installer.menuToAppend = rootMenu;
                 EditorUtility.SetDirty(installer);
@@ -89,7 +94,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             var prefab = PrefabUtility.SaveAsPrefabAssetAndConnect(obj, prefabPath, InteractionMode.AutomatedAction);
             if (prefab == null)
             {
-                Debug.LogWarning("[VRCFT Auto Setup] プレハブ保存に失敗しました: " + prefabPath);
+                Debug.LogWarning(VrcftLocalization.Format("warning.prefabSaveFailed", prefabPath));
             }
 
             EditorUtility.SetDirty(obj);

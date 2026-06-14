@@ -64,7 +64,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
         {
             get
             {
-                if (SlotMatches.Count == 0) return "(未検知)";
+                if (SlotMatches.Count == 0) return VrcftLocalization.T("notDetected");
                 return string.Join(", ", SlotMatches.Select(m => m.BlendShapeName));
             }
         }
@@ -227,25 +227,25 @@ namespace Kurotori.VrcftAutoSetup.Editor
         public string BuildSummary(VrcftAutoSetupSettings settings)
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"アバター: {AvatarName}");
-            sb.AppendLine($"フェイスメッシュ: {(FaceMesh != null ? FaceMesh.name : "(なし)")}");
-            sb.AppendLine($"走査メッシュ数: {ScannedMeshes.Count}");
-            sb.AppendLine($"プリセット: {settings.preset}");
-            sb.AppendLine($"パラメーターモード: {settings.parameterProfile}");
+            sb.AppendLine(VrcftLocalization.Format("avatarSummary", AvatarName));
+            sb.AppendLine(VrcftLocalization.Format("faceMeshSummary", FaceMesh != null ? FaceMesh.name : VrcftLocalization.T("none")));
+            sb.AppendLine(VrcftLocalization.Format("scannedMeshesSummary", ScannedMeshes.Count));
+            sb.AppendLine(VrcftLocalization.Format("presetSummary", settings.preset));
+            sb.AppendLine(VrcftLocalization.Format("parameterProfileSummary", settings.parameterProfile));
 
             var inPreset = Matches.Where(m => IsSelectable(m, settings)).ToList();
             int matched = inPreset.Count(m => m.HasAnyMatch);
-            sb.AppendLine($"検知: {matched} / {inPreset.Count} パラメーター");
+            sb.AppendLine(VrcftLocalization.Format("detectedSummary", matched, inPreset.Count));
 
             var missing = inPreset.Where(m => !m.HasAnyMatch).Select(m => m.Entry.ParameterName).ToList();
             if (missing.Count > 0)
-                sb.AppendLine($"未検知 ({missing.Count}): {string.Join(", ", missing)}");
+                sb.AppendLine(VrcftLocalization.Format("missingSummary", missing.Count, string.Join(", ", missing)));
             else
-                sb.AppendLine("未検知: なし");
+                sb.AppendLine(VrcftLocalization.T("missingNoneSummary"));
 
-            sb.AppendLine($"EyeLook: {(EyeLook.EnableEyeLook ? "有効" : "無効")} " +
-                          $"(L={(EyeLook.LeftEyeBone != null ? EyeLook.LeftEyeBone.name : "なし")}, " +
-                          $"R={(EyeLook.RightEyeBone != null ? EyeLook.RightEyeBone.name : "なし")}, " +
+            sb.AppendLine($"EyeLook: {(EyeLook.EnableEyeLook ? VrcftLocalization.T("active") : VrcftLocalization.T("inactive"))} " +
+                          $"(L={(EyeLook.LeftEyeBone != null ? EyeLook.LeftEyeBone.name : VrcftLocalization.T("none"))}, " +
+                          $"R={(EyeLook.RightEyeBone != null ? EyeLook.RightEyeBone.name : VrcftLocalization.T("none"))}, " +
                           $"eyelid={EyeLook.EyelidType})");
 
             return sb.ToString();
