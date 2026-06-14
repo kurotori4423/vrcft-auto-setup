@@ -17,6 +17,8 @@ namespace Kurotori.VrcftAutoSetup.Editor
         private const string SmoothPrefix = "OSCm/Smooth/";
         private const string LocalSmoothing = "OSCm/Local/FloatSmoothing";
         private const string RemoteSmoothing = "OSCm/Remote/FloatSmoothing";
+        private const float TrackingControlDelaySeconds = 0.25f;
+        private const float TrackingControlEntryExitTime = 0.75f;
 
         /// <summary>
         /// 生成対象パラメーター (Eye系特別扱いを含む)。
@@ -691,7 +693,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
             var vrcftTracking = vrcftState.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
             vrcftTracking.trackingEyes = VRC_AnimatorTrackingControl.TrackingType.Animation;
 
-            ConfigureBoolDrivenAnyState(layer.stateMachine, settings, "EyeTrackingActive", offState: nativeState, onState: vrcftState, clipOutputDir);
+            ConfigureBoolDrivenDelayedState(layer.stateMachine, settings, "EyeTrackingActive", offState: nativeState, onState: vrcftState, clipOutputDir);
         }
 
         // ============================================================
@@ -747,26 +749,29 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 }
             }
 
-            ConfigureBoolDrivenAnyState(sm, settings, boolParam, offState, onState, clipOutputDir);
+            ConfigureBoolDrivenDelayedState(sm, settings, boolParam, offState, onState, clipOutputDir);
         }
 
         /// <summary>
-        /// Bool パラメーターのロード済み初期値に従って、Entry 直後から正しい制御ステートへ入る構造を作る。
+        /// Bool パラメーターのロード済み初期値に従って、TrackingControl を遅延適用する制御構造を作る。
         /// </summary>
-        private static void ConfigureBoolDrivenAnyState(AnimatorStateMachine stateMachine, VrcftAutoSetupSettings settings, string boolParam, AnimatorState offState, AnimatorState onState, string clipOutputDir)
+        private static void ConfigureBoolDrivenDelayedState(AnimatorStateMachine stateMachine, VrcftAutoSetupSettings settings, string boolParam, AnimatorState offState, AnimatorState onState, string clipOutputDir)
         {
             var emptyClip = CreateEmptyControlClip(clipOutputDir, stateMachine.name);
             FillEmptyMotion(offState, emptyClip);
             FillEmptyMotion(onState, emptyClip);
 
-            // TrackingControl は起動直後に OFF 側を経由すると状態が残ることがあるため、Entry は副作用のないダミーにする。
+            // VRChat はアバター読み込み直後の TrackingControl を取りこぼすことがあるため、
+            // 副作用のない Entry を挟み、ON 側への初回適用を少し遅らせる。
             var entryState = stateMachine.AddState("Entry");
             entryState.motion = emptyClip;
             entryState.writeDefaultValues = NormalWriteDefaults(settings);
             stateMachine.defaultState = entryState;
 
-            AddAnyStateTransition(stateMachine, onState, AnimatorConditionMode.If, boolParam);
-            AddAnyStateTransition(stateMachine, offState, AnimatorConditionMode.IfNot, boolParam);
+            AddDelayedEntryTransition(entryState, onState, AnimatorConditionMode.If, boolParam, delay: true);
+            AddDelayedEntryTransition(entryState, offState, AnimatorConditionMode.IfNot, boolParam, delay: false);
+            AddReevaluationExitTransition(onState, AnimatorConditionMode.IfNot, boolParam);
+            AddReevaluationExitTransition(offState, AnimatorConditionMode.If, boolParam);
         }
 
         /// <summary>
@@ -790,14 +795,28 @@ namespace Kurotori.VrcftAutoSetup.Editor
         }
 
         /// <summary>
-        /// Any State から指定ステートへ即時遷移する条件付き遷移を追加する。
+        /// Entry から制御 State へ向かう条件付き遷移を追加する。
         /// </summary>
-        private static void AddAnyStateTransition(AnimatorStateMachine stateMachine, AnimatorState destination, AnimatorConditionMode mode, string boolParam)
+        private static void AddDelayedEntryTransition(AnimatorState entryState, AnimatorState destination, AnimatorConditionMode mode, string boolParam, bool delay)
         {
-            var transition = stateMachine.AddAnyStateTransition(destination);
+            var transition = entryState.AddTransition(destination);
+            transition.hasExitTime = delay;
+            transition.exitTime = TrackingControlEntryExitTime;
+            transition.duration = TrackingControlDelaySeconds;
+            transition.canTransitionToSelf = true;
+            transition.AddCondition(mode, 0f, boolParam);
+        }
+
+        /// <summary>
+        /// Bool が反転したときに Exit 経由で Entry へ戻し、遅延判定を再実行する遷移を追加する。
+        /// </summary>
+        private static void AddReevaluationExitTransition(AnimatorState source, AnimatorConditionMode mode, string boolParam)
+        {
+            var transition = source.AddExitTransition();
             transition.hasExitTime = false;
-            transition.duration = 0f;
-            transition.canTransitionToSelf = false;
+            transition.exitTime = TrackingControlEntryExitTime;
+            transition.duration = TrackingControlDelaySeconds;
+            transition.canTransitionToSelf = true;
             transition.AddCondition(mode, 0f, boolParam);
         }
 
