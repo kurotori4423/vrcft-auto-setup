@@ -77,7 +77,8 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 VRCExpressionsMenu rootMenu = VrcftMenuBuilder.BuildMenu(
                     result,
                     result.outputDir,
-                    VrcftAnimatorGenerator.UseSmoothing(settings));
+                    VrcftAnimatorGenerator.UseSmoothing(settings),
+                    settings.enableVoiceLipSyncBlend);
                 var installer = obj.AddComponent<ModularAvatarMenuInstaller>();
                 installer.menuToAppend = rootMenu;
                 EditorUtility.SetDirty(installer);

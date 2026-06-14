@@ -15,7 +15,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
         /// <summary>
         /// 実効設定に合わせたメニューを生成し、MenuInstaller に渡すルートメニュー (FT_Root) を返す。
         /// </summary>
-        public static VRCExpressionsMenu BuildMenu(VrcftGenerationResult result, string outputDir, bool includeSmoothing)
+        public static VRCExpressionsMenu BuildMenu(VrcftGenerationResult result, string outputDir, bool includeSmoothing, bool includeVoiceLipSyncBlend)
         {
             string menuDir = outputDir.Replace('\\', '/').TrimEnd('/') + "/Menu";
             VrcftAssetUtility.EnsureFolder(menuDir);
@@ -37,6 +37,16 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 parameter = new VRCExpressionsMenu.Control.Parameter { name = "LipTrackingActive" },
                 value = 1f,
             });
+            if (includeVoiceLipSyncBlend)
+            {
+                ftMenu.controls.Add(new VRCExpressionsMenu.Control
+                {
+                    name = "Voice LipSync Blend",
+                    type = VRCExpressionsMenu.Control.ControlType.Toggle,
+                    parameter = new VRCExpressionsMenu.Control.Parameter { name = "VoiceLipSyncBlend" },
+                    value = 1f,
+                });
+            }
             if (includeSmoothing)
             {
                 // スムージング無効時は対応する MA Parameter も生成されないため、メニュー参照も作らない。

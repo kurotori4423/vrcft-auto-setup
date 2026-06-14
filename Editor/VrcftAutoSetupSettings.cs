@@ -56,6 +56,12 @@ namespace Kurotori.VrcftAutoSetup.Editor
         /// <summary>EyeLook 駆動方式。</summary>
         public EyeLookMode eyeLookMode = EyeLookMode.HumanoidMuscleFixed;
 
+        /// <summary>発声中だけ VRChat 標準の Viseme リップシンクを優先するか。</summary>
+        public bool enableVoiceLipSyncBlend = true;
+
+        /// <summary>Viseme リップシンクへ切り替える Voice 音量しきい値。</summary>
+        public float voiceLipSyncThreshold = 0.05f;
+
         /// <summary>Expression メニューを生成するか。</summary>
         public bool addMenu = true;
 

@@ -132,6 +132,16 @@ namespace Kurotori.VrcftAutoSetup.Editor
                     }
                 }
 
+                _settings.enableVoiceLipSyncBlend = EditorGUILayout.Toggle("声でリップシンク優先", _settings.enableVoiceLipSyncBlend);
+                if (_settings.enableVoiceLipSyncBlend)
+                {
+                    using (new EditorGUI.IndentLevelScope())
+                    {
+                        _settings.voiceLipSyncThreshold = EditorGUILayout.Slider(
+                            "Voiceしきい値", Mathf.Clamp01(_settings.voiceLipSyncThreshold), 0f, 1f);
+                    }
+                }
+
                 _settings.addMenu = EditorGUILayout.Toggle("メニュー生成", _settings.addMenu);
                 _settings.outputFolder = EditorGUILayout.TextField("出力フォルダ", _settings.outputFolder);
             }
@@ -158,7 +168,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
 
         /// <summary>
         /// 合計同期ビット数を計算。
-        /// Binary時: Σ(bits + twoSidedなら+1) + 制御パラメーター(EyeTrackingActive=1, LipTrackingActive=1)。
+        /// Binary時: Σ(bits + twoSidedなら+1) + 制御パラメーター(EyeTrackingActive=1, LipTrackingActive=1, 任意VoiceLipSyncBlend=1)。
         /// Float時: 有効パラメーター数 × 8。
         /// </summary>
         private int ComputeSyncBits()
@@ -180,6 +190,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 if (m.Entry.TwoSided) total += 1; // Negativeビット
             }
             total += 2; // EyeTrackingActive + LipTrackingActive
+            if (_settings.enableVoiceLipSyncBlend) total += 1; // VoiceLipSyncBlend
             return total;
         }
 

@@ -17,8 +17,13 @@ namespace Kurotori.VrcftAutoSetup.Editor
         private const string SmoothPrefix = "OSCm/Smooth/";
         private const string LocalSmoothing = "OSCm/Local/FloatSmoothing";
         private const string RemoteSmoothing = "OSCm/Remote/FloatSmoothing";
+        private const string VoiceParameter = "Voice";
+        private const string VoiceLipSyncBlend = "VoiceLipSyncBlend";
+        private const string VoiceLipSyncThreshold = "VRCFT/VoiceLipSyncThreshold";
         private const float TrackingControlDelaySeconds = 0.25f;
         private const float TrackingControlEntryExitTime = 0.75f;
+        private const float VoiceLipSyncLayerBlendSeconds = 0.2f;
+        private const float VoiceThresholdEpsilon = 0.0001f;
 
         /// <summary>
         /// 生成対象パラメーター (Eye系特別扱いを含む)。
@@ -95,8 +100,16 @@ namespace Kurotori.VrcftAutoSetup.Editor
 
             BuildControlLayer(controller, settings, "VRCFT_Control", "EyeTrackingActive", trackingEyes: true,
                 onWeightLayers: ToList(eyeDrivingIndex), clipOutputDir: outputDir + "/Animations", applyTrackingControl: result.additiveController == null);
-            BuildControlLayer(controller, settings, "VRCFT_LipControl", "LipTrackingActive", trackingEyes: false,
-                onWeightLayers: ToList(lipDrivingIndex), clipOutputDir: outputDir + "/Animations");
+            if (settings.enableVoiceLipSyncBlend)
+            {
+                BuildVoiceLipControlLayer(controller, settings, "VRCFT_LipControl",
+                    onWeightLayers: ToList(lipDrivingIndex), clipOutputDir: outputDir + "/Animations");
+            }
+            else
+            {
+                BuildControlLayer(controller, settings, "VRCFT_LipControl", "LipTrackingActive", trackingEyes: false,
+                    onWeightLayers: ToList(lipDrivingIndex), clipOutputDir: outputDir + "/Animations", applyTrackingControl: false);
+            }
 
             EditorUtility.SetDirty(controller);
             AssetDatabase.SaveAssets();
@@ -191,6 +204,10 @@ namespace Kurotori.VrcftAutoSetup.Editor
 
             result.syncedParameters.Add(new VrcftSyncedParameter("EyeTrackingActive", VrcftParameterKind.Bool, 0f, saved: true));
             result.syncedParameters.Add(new VrcftSyncedParameter("LipTrackingActive", VrcftParameterKind.Bool, 0f, saved: true));
+            if (settings.enableVoiceLipSyncBlend)
+            {
+                result.syncedParameters.Add(new VrcftSyncedParameter(VoiceLipSyncBlend, VrcftParameterKind.Bool, 1f, saved: true));
+            }
             if (UseSmoothing(settings))
             {
                 result.syncedParameters.Add(new VrcftSyncedParameter(LocalSmoothing, VrcftParameterKind.Float, settings.localSmoothness, saved: true, localOnly: true));
@@ -247,6 +264,13 @@ namespace Kurotori.VrcftAutoSetup.Editor
             VrcftAssetUtility.CheckAndCreateParameter(controller, "IsLocal", AnimatorControllerParameterType.Bool);
             VrcftAssetUtility.CheckAndCreateParameter(controller, "EyeTrackingActive", AnimatorControllerParameterType.Bool);
             VrcftAssetUtility.CheckAndCreateParameter(controller, "LipTrackingActive", AnimatorControllerParameterType.Bool);
+            if (settings.enableVoiceLipSyncBlend)
+            {
+                VrcftAssetUtility.CheckAndCreateParameter(controller, VoiceLipSyncBlend, AnimatorControllerParameterType.Bool, defaultBool: true);
+                VrcftAssetUtility.CheckAndCreateParameter(controller, VoiceParameter, AnimatorControllerParameterType.Float);
+                VrcftAssetUtility.CheckAndCreateParameter(controller, VoiceLipSyncThreshold, AnimatorControllerParameterType.Float,
+                    defaultFloat: Mathf.Clamp01(settings.voiceLipSyncThreshold));
+            }
 
             foreach (var t in targets)
             {
@@ -753,6 +777,90 @@ namespace Kurotori.VrcftAutoSetup.Editor
         }
 
         /// <summary>
+        /// Face Tracking の口駆動と VRChat 標準 Viseme を Voice 音量で切り替える Lip 制御レイヤーを構築する。
+        /// </summary>
+        private static void BuildVoiceLipControlLayer(AnimatorController controller, VrcftAutoSetupSettings settings, string layerName, List<int> onWeightLayers, string clipOutputDir)
+        {
+            var layer = new AnimatorControllerLayer
+            {
+                name = layerName,
+                defaultWeight = 1f,
+                stateMachine = new AnimatorStateMachine { name = layerName, hideFlags = HideFlags.HideInHierarchy },
+            };
+            AssetDatabase.AddObjectToAsset(layer.stateMachine, controller);
+            controller.AddLayer(layer);
+
+            var sm = layer.stateMachine;
+
+            var offState = CreateLipControlState(sm, settings, "Lip_Off", onWeightLayers, layerWeight: 0f);
+            var trackingState = CreateLipControlState(sm, settings, "Lip_Tracking", onWeightLayers, layerWeight: 1f);
+            var visemeState = CreateLipControlState(sm, settings, "Lip_Viseme", onWeightLayers, layerWeight: 0f);
+
+            ConfigureVoiceLipDrivenDelayedState(sm, settings, offState, trackingState, visemeState, clipOutputDir);
+        }
+
+        /// <summary>
+        /// Lip 制御 State を作成し、対象レイヤー weight だけを設定する。
+        /// </summary>
+        private static AnimatorState CreateLipControlState(AnimatorStateMachine stateMachine, VrcftAutoSetupSettings settings, string stateName, List<int> onWeightLayers, float layerWeight)
+        {
+            var state = stateMachine.AddState(stateName);
+            state.writeDefaultValues = NormalWriteDefaults(settings);
+
+            if (onWeightLayers != null)
+            {
+                foreach (var layerIndex in onWeightLayers)
+                {
+                    if (layerIndex < 0) continue;
+                    AddLayerControl(state, layerIndex, layerWeight, VoiceLipSyncLayerBlendSeconds);
+                }
+            }
+
+            return state;
+        }
+
+        /// <summary>
+        /// LipTrackingActive、VoiceLipSyncBlend、Voice 音量から Lip 制御 State を再選択する構造を作る。
+        /// </summary>
+        private static void ConfigureVoiceLipDrivenDelayedState(AnimatorStateMachine stateMachine, VrcftAutoSetupSettings settings, AnimatorState offState, AnimatorState trackingState, AnimatorState visemeState, string clipOutputDir)
+        {
+            var emptyClip = CreateEmptyControlClip(clipOutputDir, stateMachine.name);
+            FillEmptyMotion(offState, emptyClip);
+            FillEmptyMotion(trackingState, emptyClip);
+            FillEmptyMotion(visemeState, emptyClip);
+
+            var entryState = stateMachine.AddState("Entry");
+            entryState.motion = emptyClip;
+            entryState.writeDefaultValues = NormalWriteDefaults(settings);
+            stateMachine.defaultState = entryState;
+
+            float threshold = Mathf.Clamp01(settings.voiceLipSyncThreshold);
+            float visemeThreshold = Mathf.Max(0f, threshold - VoiceThresholdEpsilon);
+
+            // Entry は TrackingControl の初期適用だけに使い、発声中の往復は下の直接遷移で即時反映する。
+            AddConditionalTransition(entryState, trackingState, delay: true,
+                Condition(AnimatorConditionMode.If, "LipTrackingActive"));
+            AddConditionalTransition(entryState, offState, delay: false,
+                Condition(AnimatorConditionMode.IfNot, "LipTrackingActive"));
+
+            AddConditionalExitTransition(offState,
+                Condition(AnimatorConditionMode.If, "LipTrackingActive"));
+            AddConditionalExitTransition(trackingState,
+                Condition(AnimatorConditionMode.IfNot, "LipTrackingActive"));
+
+            // Viseme への切替は発声に追従させるため、Entry 経由の遅延を挟まない。
+            AddImmediateTransition(trackingState, visemeState,
+                Condition(AnimatorConditionMode.If, VoiceLipSyncBlend),
+                Condition(AnimatorConditionMode.Greater, VoiceParameter, visemeThreshold));
+            AddImmediateTransition(visemeState, trackingState,
+                Condition(AnimatorConditionMode.IfNot, "LipTrackingActive"));
+            AddImmediateTransition(visemeState, trackingState,
+                Condition(AnimatorConditionMode.IfNot, VoiceLipSyncBlend));
+            AddImmediateTransition(visemeState, trackingState,
+                Condition(AnimatorConditionMode.Less, VoiceParameter, threshold));
+        }
+
+        /// <summary>
         /// Bool パラメーターのロード済み初期値に従って、TrackingControl を遅延適用する制御構造を作る。
         /// </summary>
         private static void ConfigureBoolDrivenDelayedState(AnimatorStateMachine stateMachine, VrcftAutoSetupSettings settings, string boolParam, AnimatorState offState, AnimatorState onState, string clipOutputDir)
@@ -808,6 +916,37 @@ namespace Kurotori.VrcftAutoSetup.Editor
         }
 
         /// <summary>
+        /// 複数条件を持つ Entry 遷移を追加する。
+        /// </summary>
+        private static void AddConditionalTransition(AnimatorState source, AnimatorState destination, bool delay, params AnimatorCondition[] conditions)
+        {
+            var transition = source.AddTransition(destination);
+            transition.hasExitTime = delay;
+            transition.exitTime = TrackingControlEntryExitTime;
+            transition.duration = TrackingControlDelaySeconds;
+            transition.canTransitionToSelf = true;
+            foreach (var condition in conditions)
+            {
+                transition.AddCondition(condition.mode, condition.threshold, condition.parameter);
+            }
+        }
+
+        /// <summary>
+        /// 発声状態に追従したい条件向けに、Entry を経由しない State 間遷移を追加する。
+        /// </summary>
+        private static void AddImmediateTransition(AnimatorState source, AnimatorState destination, params AnimatorCondition[] conditions)
+        {
+            var transition = source.AddTransition(destination);
+            transition.hasExitTime = false;
+            transition.duration = 0f;
+            transition.canTransitionToSelf = true;
+            foreach (var condition in conditions)
+            {
+                transition.AddCondition(condition.mode, condition.threshold, condition.parameter);
+            }
+        }
+
+        /// <summary>
         /// Bool が反転したときに Exit 経由で Entry へ戻し、遅延判定を再実行する遷移を追加する。
         /// </summary>
         private static void AddReevaluationExitTransition(AnimatorState source, AnimatorConditionMode mode, string boolParam)
@@ -818,6 +957,43 @@ namespace Kurotori.VrcftAutoSetup.Editor
             transition.duration = TrackingControlDelaySeconds;
             transition.canTransitionToSelf = true;
             transition.AddCondition(mode, 0f, boolParam);
+        }
+
+        /// <summary>
+        /// 複数条件を持つ Exit 遷移を追加し、Entry で制御 State を選び直せるようにする。
+        /// </summary>
+        private static void AddConditionalExitTransition(AnimatorState source, params AnimatorCondition[] conditions)
+        {
+            var transition = source.AddExitTransition();
+            transition.hasExitTime = false;
+            transition.exitTime = TrackingControlEntryExitTime;
+            transition.duration = TrackingControlDelaySeconds;
+            transition.canTransitionToSelf = true;
+            foreach (var condition in conditions)
+            {
+                transition.AddCondition(condition.mode, condition.threshold, condition.parameter);
+            }
+        }
+
+        /// <summary>
+        /// Bool 条件を AnimatorCondition として作る。
+        /// </summary>
+        private static AnimatorCondition Condition(AnimatorConditionMode mode, string parameter)
+        {
+            return Condition(mode, parameter, 0f);
+        }
+
+        /// <summary>
+        /// Float 比較条件を AnimatorCondition として作る。
+        /// </summary>
+        private static AnimatorCondition Condition(AnimatorConditionMode mode, string parameter, float threshold)
+        {
+            return new AnimatorCondition
+            {
+                mode = mode,
+                parameter = parameter,
+                threshold = threshold,
+            };
         }
 
         private static int FindLayerIndex(AnimatorController controller, string layerName)
@@ -835,13 +1011,13 @@ namespace Kurotori.VrcftAutoSetup.Editor
             return values.Where(v => v >= 0).ToList();
         }
 
-        private static void AddLayerControl(AnimatorState state, int layerIndex, float goalWeight)
+        private static void AddLayerControl(AnimatorState state, int layerIndex, float goalWeight, float blendDuration = 0.1f)
         {
             var lc = state.AddStateMachineBehaviour<VRCAnimatorLayerControl>();
             lc.playable = VRC_AnimatorLayerControl.BlendableLayer.FX;
             lc.layer = layerIndex;
             lc.goalWeight = goalWeight;
-            lc.blendDuration = 0.1f;
+            lc.blendDuration = blendDuration;
         }
 
         /// <summary>
