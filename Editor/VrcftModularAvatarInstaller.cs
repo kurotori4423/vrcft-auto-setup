@@ -62,13 +62,10 @@ namespace Kurotori.VrcftAutoSetup.Editor
                 maParams.parameters.Add(new ParameterConfig
                 {
                     nameOrPrefix = p.name,
-                    syncType = p.kind == VrcftParameterKind.Bool
-                        ? ParameterSyncType.Bool
-                        : ParameterSyncType.Float,
+                    syncType = ResolveParameterSyncType(p),
                     defaultValue = p.defaultValue,
                     saved = p.saved,
                     localOnly = p.localOnly,
-                    internalParameter = IsExpressionInternalParameter(p.name),
                     hasExplicitDefaultValue = true,
                 });
             }
@@ -115,9 +112,25 @@ namespace Kurotori.VrcftAutoSetup.Editor
         }
 
         /// <summary>
-        /// AAP の書き込み先は Debug 表示で正しい値を確認できないため Expression Parameters から除外する。
+        /// MA Parameters に登録する同期種別を返す。
         /// </summary>
-        private static bool IsExpressionInternalParameter(string parameterName)
+        private static ParameterSyncType ResolveParameterSyncType(VrcftSyncedParameter parameter)
+        {
+            if (IsAnimatorOnlyParameter(parameter.name))
+            {
+                // AAP の書き込み先は Debug 表示で正しい値を確認できないため、Animator のみに留める。
+                return ParameterSyncType.NotSynced;
+            }
+
+            return parameter.kind == VrcftParameterKind.Bool
+                ? ParameterSyncType.Bool
+                : ParameterSyncType.Float;
+        }
+
+        /// <summary>
+        /// Expression Parameters に出さず、Animator Controller 内だけで使う補助パラメーターか判定する。
+        /// </summary>
+        private static bool IsAnimatorOnlyParameter(string parameterName)
         {
             return parameterName != null && parameterName.StartsWith("OSCm/Smooth/");
         }
