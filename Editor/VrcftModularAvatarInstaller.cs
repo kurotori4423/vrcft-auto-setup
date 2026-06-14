@@ -68,6 +68,7 @@ namespace Kurotori.VrcftAutoSetup.Editor
                     defaultValue = p.defaultValue,
                     saved = p.saved,
                     localOnly = p.localOnly,
+                    internalParameter = IsExpressionInternalParameter(p.name),
                     hasExplicitDefaultValue = true,
                 });
             }
@@ -111,6 +112,14 @@ namespace Kurotori.VrcftAutoSetup.Editor
             merge.pathMode = MergeAnimatorPathMode.Absolute;
             merge.matchAvatarWriteDefaults = false;
             EditorUtility.SetDirty(merge);
+        }
+
+        /// <summary>
+        /// AAP の書き込み先は Debug 表示で正しい値を確認できないため Expression Parameters から除外する。
+        /// </summary>
+        private static bool IsExpressionInternalParameter(string parameterName)
+        {
+            return parameterName != null && parameterName.StartsWith("OSCm/Smooth/");
         }
 #endif
     }

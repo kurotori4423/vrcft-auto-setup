@@ -45,10 +45,10 @@ namespace Kurotori.VrcftAutoSetup.Editor
         public bool enableSmoothing = true;
 
         /// <summary>ローカルスムージング (ブレンド比, 0..1)。</summary>
-        public float localSmoothness = 0.7f;
+        public float localSmoothness = 0.2f;
 
         /// <summary>リモートスムージング (ブレンド比, 0..1)。</summary>
-        public float remoteSmoothness = 0.9f;
+        public float remoteSmoothness = 0.4f;
 
         /// <summary>EyeLook (視線) アニメを生成するか。</summary>
         public bool enableEyeLook = true;
