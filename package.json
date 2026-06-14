@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "unity": "2022.3",
   "description": "VRChat Face Tracking (VRCFT) 用のアニメーションセットアップを対象アバターから自動生成するエディタ拡張。",
+  "license": "MIT",
   "author": {
     "name": "kurotori4423",
     "email": "kurotori4423@gmail.com",
